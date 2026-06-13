@@ -1,0 +1,275 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Placeholder — Convert any file, right in your browser</title>
+  <meta name="description" content="Placeholder converts images, audio, documents and data entirely on your device. No uploads, no sign-up, free forever.">
+  <link rel="icon" href="data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 64 64'%3E%3Cdefs%3E%3ClinearGradient id='g' x1='0' y1='0' x2='1' y2='1'%3E%3Cstop offset='0' stop-color='%232563eb'/%3E%3Cstop offset='1' stop-color='%23a855f7'/%3E%3C/linearGradient%3E%3C/defs%3E%3Crect width='64' height='64' rx='14' fill='url(%23g)'/%3E%3Ctext x='32' y='45' font-family='Arial' font-size='36' font-weight='bold' fill='white' text-anchor='middle'%3EP%3C/text%3E%3C/svg%3E">
+  <link rel="preconnect" href="https://fonts.googleapis.com">
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+  <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&family=Space+Grotesk:wght@500;600;700&display=swap" rel="stylesheet">
+  <link rel="stylesheet" href="css/styles.css">
+</head>
+<body>
+
+  <div class="scenery">
+    <div class="orb orb-blue"></div>
+    <div class="orb orb-purple"></div>
+    <div class="orb orb-pink"></div>
+  </div>
+
+  <nav class="nav" id="nav">
+    <div class="wrap nav-inner">
+      <a class="logo" href="index.html">
+        <span class="logo-mark">P</span> Placeholder
+      </a>
+      <div class="nav-links">
+        <a href="/">⌂ Toolkit</a>
+        <a href="#features">Features</a>
+        <a href="#how">How it works</a>
+        <a href="#formats">Formats</a>
+        <a href="#faq">FAQ</a>
+      </div>
+      <a class="btn btn-primary btn-sm" href="convert.html">Open converter</a>
+    </div>
+  </nav>
+
+  <!-- ============ HERO ============ -->
+  <header class="wrap hero">
+    <div>
+      <span class="eyebrow"><span class="spark">✦</span> Free forever · No uploads · No sign-up</span>
+      <h1>Convert any file.<br><span class="grad-text">Upload nothing.</span></h1>
+      <p class="hero-sub">
+        Placeholder transforms images, audio, documents and data into the formats you
+        need — entirely on your device, powered by your own browser. Your files never
+        touch a server, so they stay private, conversions finish in moments, and it
+        costs nothing. Ever.
+      </p>
+      <div class="hero-ctas">
+        <a class="btn btn-primary btn-lg" href="convert.html">Start converting →</a>
+        <a class="btn btn-ghost btn-lg" href="#formats">See supported formats</a>
+      </div>
+      <div class="chip-row">
+        <span class="chip">PNG <b>→</b> WebP</span>
+        <span class="chip">MP3 <b>→</b> WAV</span>
+        <span class="chip">CSV <b>→</b> XLSX</span>
+        <span class="chip">Markdown <b>→</b> HTML</span>
+        <span class="chip">SVG <b>→</b> PNG</span>
+      </div>
+    </div>
+
+    <div class="demo-card" aria-hidden="true">
+      <div class="demo-head">
+        <span class="dot"></span><span class="dot"></span><span class="dot"></span>
+        <span class="demo-title">PLACEHOLDER · CONVERTER</span>
+      </div>
+      <div class="demo-file">
+        <div class="demo-icon" id="demoIcon">CSV</div>
+        <div class="demo-meta">
+          <strong id="demoName">quarterly-report.csv</strong>
+          <span>248 KB · type detected automatically</span>
+        </div>
+      </div>
+      <div class="demo-arrow">Converting to <b id="demoTarget">XLSX</b> — on this device, nowhere else</div>
+      <div class="demo-bar"><i id="demoBar"></i></div>
+      <div class="demo-foot"><span class="demo-check">✓</span> Done in a blink — ready to download</div>
+    </div>
+  </header>
+
+  <!-- ============ STATS ============ -->
+  <div class="wrap reveal">
+    <div class="stats">
+      <div class="stat"><b>45+</b><span>conversion paths</span></div>
+      <div class="stat"><b>0</b><span>files ever uploaded</span></div>
+      <div class="stat"><b>100%</b><span>free, no account needed</span></div>
+      <div class="stat"><b>~1s</b><span>typical conversion time</span></div>
+    </div>
+  </div>
+
+  <!-- ============ FEATURES ============ -->
+  <section id="features" class="wrap">
+    <div class="sec-head reveal">
+      <span class="sec-eyebrow">Why Placeholder</span>
+      <h2>Everything a converter should be. <span class="grad-text">Nothing it shouldn't.</span></h2>
+      <p>Most converters ship your files to a server farm and charge you for the round trip. We skipped the server entirely.</p>
+    </div>
+    <div class="feat-grid">
+      <div class="feat reveal">
+        <div class="feat-icon"><svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><rect x="4" y="10" width="16" height="11" rx="2.5"/><path d="M8 10V7a4 4 0 0 1 8 0v3"/></svg></div>
+        <h3>Private by design</h3>
+        <p>Conversions run with your browser's own engines, on your hardware. Nothing is uploaded, logged or stored — we couldn't peek at your files if we wanted to.</p>
+      </div>
+      <div class="feat reveal">
+        <div class="feat-icon"><svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><path d="M13 2 4.5 13.5H11L9.5 22 19 10h-6.5L13 2z"/></svg></div>
+        <h3>Instant results</h3>
+        <p>No upload queues, no server round-trips, no "your file is 14th in line." Most conversions finish before you can reach for your coffee.</p>
+      </div>
+      <div class="feat reveal">
+        <div class="feat-icon"><svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="12" r="9"/><path d="M9.5 9.5c0-1.4 1.1-2.5 2.5-2.5s2.5 1.1 2.5 2.5c0 1.8-2.5 2-2.5 4"/><circle cx="12" cy="17" r="0.4" fill="currentColor"/></svg></div>
+        <h3>Free. Actually free.</h3>
+        <p>No subscriptions, no daily caps, no watermarks, no "premium formats." Because there are no processing servers, there's nothing to charge you for.</p>
+      </div>
+      <div class="feat reveal">
+        <div class="feat-icon"><svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><circle cx="11" cy="11" r="7"/><path d="m21 21-4.3-4.3"/></svg></div>
+        <h3>Smart detection</h3>
+        <p>Drop in a file and Placeholder reads its signature bytes — not just the extension — to work out exactly what it is and what it can become.</p>
+      </div>
+      <div class="feat reveal">
+        <div class="feat-icon"><svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><path d="M4 8h10M18 8h2M4 16h2M10 16h10"/><circle cx="16" cy="8" r="2.2"/><circle cx="8" cy="16" r="2.2"/></svg></div>
+        <h3>Quality controls</h3>
+        <p>Dial in exactly the compression you want for JPEG and WebP output. Pixel-perfect or featherweight — your call, with a single slider.</p>
+      </div>
+      <div class="feat reveal">
+        <div class="feat-icon"><svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="12" r="9"/><path d="M3 12h18M12 3c2.5 2.6 4 5.6 4 9s-1.5 6.4-4 9c-2.5-2.6-4-5.6-4-9s1.5-6.4 4-9z"/></svg></div>
+        <h3>Works everywhere</h3>
+        <p>Nothing to install and nothing to update. If you have a modern browser — on Windows, macOS, Linux, or your phone — you have Placeholder.</p>
+      </div>
+    </div>
+  </section>
+
+  <!-- ============ HOW IT WORKS ============ -->
+  <section id="how" class="wrap">
+    <div class="sec-head reveal">
+      <span class="sec-eyebrow">How it works</span>
+      <h2>Three steps. <span class="grad-text">Zero patience required.</span></h2>
+      <p>If you can drag a file, you already know how to use Placeholder.</p>
+    </div>
+    <div class="steps">
+      <div class="step reveal">
+        <div class="step-num">01</div>
+        <h3>Drop in a file</h3>
+        <p>Drag &amp; drop or browse. Placeholder identifies the format instantly and shows you everything it can do with it.</p>
+      </div>
+      <div class="step reveal">
+        <div class="step-num">02</div>
+        <h3>Pick a format</h3>
+        <p>Choose your target from the dropdown — only conversions that genuinely work for your file are listed. No dead ends.</p>
+      </div>
+      <div class="step reveal">
+        <div class="step-num">03</div>
+        <h3>Download</h3>
+        <p>Your file is converted on-device in moments. Hit download and carry on with your day. That's the whole tutorial.</p>
+      </div>
+    </div>
+  </section>
+
+  <!-- ============ FORMATS ============ -->
+  <section id="formats" class="wrap">
+    <div class="sec-head reveal">
+      <span class="sec-eyebrow">Supported formats</span>
+      <h2>One toolbox, <span class="grad-text">dozens of paths.</span></h2>
+      <p>Every conversion below runs locally in your browser. We only list what actually works — no bait, no upsells.</p>
+    </div>
+    <div class="fmt-grid">
+      <div class="fmt-card reveal">
+        <h3><span class="feat-icon"><svg width="17" height="17" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><rect x="3" y="4" width="18" height="16" rx="2.5"/><circle cx="9" cy="10" r="1.8"/><path d="m21 16-4.5-4.5L7 21"/></svg></span> Images</h3>
+        <p>Convert between raster formats, rasterise vectors, build icons or print-ready PDFs.</p>
+        <div class="fmt-tags">
+          <span class="fmt-divider">From</span>
+          <span class="fmt-tag">PNG</span><span class="fmt-tag">JPEG</span><span class="fmt-tag">WebP</span><span class="fmt-tag">GIF</span><span class="fmt-tag">BMP</span><span class="fmt-tag">SVG</span><span class="fmt-tag">ICO</span><span class="fmt-tag">AVIF</span>
+          <span class="fmt-divider">To</span>
+          <span class="fmt-tag out">PNG</span><span class="fmt-tag out">JPEG</span><span class="fmt-tag out">WebP</span><span class="fmt-tag out">BMP</span><span class="fmt-tag out">ICO</span><span class="fmt-tag out">PDF</span>
+        </div>
+      </div>
+      <div class="fmt-card reveal">
+        <h3><span class="feat-icon"><svg width="17" height="17" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><path d="M9 18V6l11-2v12"/><circle cx="6" cy="18" r="3"/><circle cx="17" cy="16" r="3"/></svg></span> Audio &amp; video</h3>
+        <p>Re-encode audio, extract soundtracks from video, or grab a still frame.</p>
+        <div class="fmt-tags">
+          <span class="fmt-divider">From</span>
+          <span class="fmt-tag">MP3</span><span class="fmt-tag">WAV</span><span class="fmt-tag">OGG</span><span class="fmt-tag">FLAC</span><span class="fmt-tag">M4A</span><span class="fmt-tag">MP4</span><span class="fmt-tag">WebM</span><span class="fmt-tag">MOV</span>
+          <span class="fmt-divider">To</span>
+          <span class="fmt-tag out">WAV</span><span class="fmt-tag out">MP3</span><span class="fmt-tag out">PNG frame</span><span class="fmt-tag out">JPEG frame</span>
+        </div>
+      </div>
+      <div class="fmt-card reveal">
+        <h3><span class="feat-icon"><svg width="17" height="17" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><path d="M14 3H7a2 2 0 0 0-2 2v14a2 2 0 0 0 2 2h10a2 2 0 0 0 2-2V8l-5-5z"/><path d="M14 3v5h5M9 13h6M9 17h6"/></svg></span> Documents &amp; data</h3>
+        <p>Move tables and markup between every format your tools argue about.</p>
+        <div class="fmt-tags">
+          <span class="fmt-divider">From</span>
+          <span class="fmt-tag">CSV</span><span class="fmt-tag">TSV</span><span class="fmt-tag">JSON</span><span class="fmt-tag">YAML</span><span class="fmt-tag">XML</span><span class="fmt-tag">XLSX</span><span class="fmt-tag">Markdown</span><span class="fmt-tag">HTML</span><span class="fmt-tag">TXT</span>
+          <span class="fmt-divider">To</span>
+          <span class="fmt-tag out">JSON</span><span class="fmt-tag out">CSV</span><span class="fmt-tag out">XLSX</span><span class="fmt-tag out">YAML</span><span class="fmt-tag out">XML</span><span class="fmt-tag out">HTML</span><span class="fmt-tag out">Markdown</span><span class="fmt-tag out">PDF</span>
+        </div>
+      </div>
+      <div class="fmt-card reveal">
+        <h3><span class="feat-icon"><svg width="17" height="17" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><rect x="3" y="3" width="18" height="18" rx="2.5"/><path d="M12 3v18M3 12h18"/></svg></span> Anything else</h3>
+        <p>Every file, whatever it is, gets two universal escape hatches.</p>
+        <div class="fmt-tags">
+          <span class="fmt-divider">From</span>
+          <span class="fmt-tag">Any file at all</span>
+          <span class="fmt-divider">To</span>
+          <span class="fmt-tag out">ZIP archive</span><span class="fmt-tag out">Base64 text</span>
+        </div>
+      </div>
+    </div>
+  </section>
+
+  <!-- ============ FAQ ============ -->
+  <section id="faq" class="wrap">
+    <div class="sec-head reveal">
+      <span class="sec-eyebrow">FAQ</span>
+      <h2>Fair questions, <span class="grad-text">honest answers.</span></h2>
+    </div>
+    <div class="faq reveal">
+      <details>
+        <summary>Is Placeholder really free? What's the catch?</summary>
+        <p>There isn't one. Conversions run on your device using your browser's built-in capabilities, so we have no server bills to pass on to you. No account, no trial, no watermark, no limits.</p>
+      </details>
+      <details>
+        <summary>Where do my files go?</summary>
+        <p>Nowhere. Files are read directly into your browser's memory, converted there, and offered back as a download. They never leave your machine — you can even disconnect from the internet after the page loads and keep converting.</p>
+      </details>
+      <details>
+        <summary>Is there a file size limit?</summary>
+        <p>No artificial one. The practical ceiling is your device's memory, since everything happens locally. Day-to-day files — photos, songs, spreadsheets — convert effortlessly.</p>
+      </details>
+      <details>
+        <summary>Why isn't my favourite conversion listed?</summary>
+        <p>We only offer conversions that browsers can perform locally and reliably. Formats that require heavyweight or licensed codecs — like encoding full videos — would need server processing, and we'd rather stay free and private than charge you for a render farm.</p>
+      </details>
+    </div>
+  </section>
+
+  <!-- ============ CTA ============ -->
+  <section class="wrap">
+    <div class="cta-band reveal">
+      <h2>Ready when <span class="grad-text">your files are.</span></h2>
+      <p>No sign-up. No upload. No catch. Just pick a file and go.</p>
+      <a class="btn btn-primary btn-lg" href="convert.html">Open the converter →</a>
+    </div>
+  </section>
+
+  <!-- ============ FOOTER ============ -->
+  <footer>
+    <div class="wrap">
+      <div class="foot-grid">
+        <div class="foot-brand">
+          <a class="logo" href="index.html"><span class="logo-mark">P</span> Placeholder</a>
+          <p>The file converter that never sees your files. Built for the browser, priced for everyone: free.</p>
+        </div>
+        <div class="foot-cols">
+          <div class="foot-col">
+            <h4>Product</h4>
+            <a href="convert.html">Converter</a>
+            <a href="#formats">Supported formats</a>
+            <a href="#how">How it works</a>
+          </div>
+          <div class="foot-col">
+            <h4>Company</h4>
+            <a href="#features">About</a>
+            <a href="#faq">Privacy</a>
+            <a href="#faq">FAQ</a>
+          </div>
+        </div>
+      </div>
+      <div class="foot-base">
+        <span>© <span id="year">2026</span> Placeholder. All files stay yours.</span>
+        <span>Made with zero servers and a lot of gradients.</span>
+      </div>
+    </div>
+  </footer>
+
+  <script src="js/landing.js"></script>
+</body>
+</html>

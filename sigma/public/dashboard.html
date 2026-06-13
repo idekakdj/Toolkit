@@ -1,0 +1,73 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Your projects — Sigma</title>
+  <link rel="icon" href="/sigma/img/favicon.svg" type="image/svg+xml">
+  <link rel="stylesheet" href="/sigma/css/site.css">
+</head>
+<body>
+  <nav class="nav">
+    <a class="brand" href="/sigma">
+      <svg class="logo" viewBox="0 0 40 40" xmlns="http://www.w3.org/2000/svg" aria-hidden="true">
+        <rect x="2" y="2" width="36" height="36" rx="9" fill="#c96f2e"/>
+        <path d="M28 12H14l8 8-8 8h14" fill="none" stroke="#f6efe2" stroke-width="3.6" stroke-linecap="round" stroke-linejoin="round"/>
+      </svg>
+      Sigma
+    </a>
+    <div class="nav-links">
+      <span id="user-name" style="color:var(--ink-soft);font-weight:600"></span>
+      <button class="btn btn-ghost btn-small" id="logout-btn" type="button">Sign out</button>
+    </div>
+  </nav>
+
+  <main class="dash-wrap">
+    <div class="dash-head">
+      <div>
+        <h1>Your projects</h1>
+        <p class="sub" id="project-count"></p>
+      </div>
+      <button class="btn btn-orange" id="new-project-btn" type="button">+ New project</button>
+    </div>
+
+    <div class="project-grid" id="project-grid"></div>
+
+    <div class="empty-state" id="empty-state" hidden>
+      <div class="big">🎨</div>
+      <h2>No projects yet</h2>
+      <p>Create your first project and start designing.</p>
+    </div>
+  </main>
+
+  <!-- new / rename project modal -->
+  <div class="modal-backdrop" id="project-modal">
+    <div class="modal">
+      <h2 id="project-modal-title">New project</h2>
+      <div class="form-error" id="project-modal-error" role="alert"></div>
+      <div class="field">
+        <label for="project-name-input">Project name</label>
+        <input id="project-name-input" type="text" maxlength="80" placeholder="My awesome design">
+      </div>
+      <div class="modal-actions">
+        <button class="btn btn-ghost btn-small" id="project-modal-cancel" type="button">Cancel</button>
+        <button class="btn btn-turquoise btn-small" id="project-modal-save" type="button">Create</button>
+      </div>
+    </div>
+  </div>
+
+  <!-- delete confirm modal -->
+  <div class="modal-backdrop" id="delete-modal">
+    <div class="modal">
+      <h2>Delete project?</h2>
+      <p id="delete-modal-text" style="color:var(--ink-soft)"></p>
+      <div class="modal-actions">
+        <button class="btn btn-ghost btn-small" id="delete-modal-cancel" type="button">Cancel</button>
+        <button class="btn btn-danger btn-small" id="delete-modal-confirm" type="button">Delete</button>
+      </div>
+    </div>
+  </div>
+
+  <script type="module" src="/sigma/js/dashboard.js"></script>
+</body>
+</html>

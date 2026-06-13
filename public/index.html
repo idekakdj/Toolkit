@@ -1,0 +1,201 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Toolkit — every tool, one channel</title>
+  <meta name="description" content="Toolkit is one shell for clones of the apps you already love. Sign in once, use everything.">
+  <link rel="icon" href="/img/toolkit.svg" type="image/svg+xml">
+  <link rel="stylesheet" href="/css/toolkit.css">
+</head>
+<body>
+  <div class="scuffs" aria-hidden="true"></div>
+  <canvas id="trail" aria-hidden="true"></canvas>
+
+  <div class="page">
+    <nav class="nav">
+      <a class="brand" href="/">
+        <svg class="logo" viewBox="0 0 40 40" xmlns="http://www.w3.org/2000/svg" aria-hidden="true">
+          <rect x="2" y="2" width="36" height="36" rx="6" fill="#ececec"/>
+          <path d="M11 13h18M20 13v15" stroke="#0e0e0e" stroke-width="4" stroke-linecap="round"/>
+          <path d="M8 31l4-3M32 9l-3 2.5" stroke="#0e0e0e" stroke-width="1.4" stroke-linecap="round" opacity="0.45"/>
+        </svg>
+        TOOLKIT
+      </a>
+      <div class="nav-links">
+        <a href="#rack">Apps</a>
+        <a href="#why">About</a>
+        <span id="nav-user" hidden></span>
+        <a class="btn btn-ghost btn-sm" id="nav-signout" hidden href="#">Sign out</a>
+        <a class="btn btn-sm" id="nav-signin" href="/auth">Sign in</a>
+      </div>
+    </nav>
+
+    <header class="hero">
+      <span class="stamp">est. 2026 · scratches included</span>
+      <h1>The <span class="ghost">worn</span> toolbox</h1>
+      <p class="lead">
+        Toolkit is one shell for clones of the apps you already love — rebuilt,
+        sharpened and hung on the same wall. Sign in once and every tool in the
+        box opens for you. No second passwords, no eleventh tab.
+      </p>
+      <p class="psst">p.s. — click and drag anywhere on the dark. the rainbow's still under the grime.</p>
+    </header>
+
+    <!-- ============ THE RACK: current apps ============ -->
+    <section class="rack" id="rack">
+      <div class="rack-label">tools on the wall</div>
+      <div class="rack-grid">
+
+        <a class="app-card" href="/sigma">
+          <span class="tape" aria-hidden="true"></span>
+          <span class="app-icon" aria-hidden="true">
+            <svg viewBox="0 0 40 40" xmlns="http://www.w3.org/2000/svg">
+              <rect x="2" y="2" width="36" height="36" rx="9" fill="#c96f2e"/>
+              <path d="M28 12H14l8 8-8 8h14" fill="none" stroke="#f6efe2" stroke-width="3.6" stroke-linecap="round" stroke-linejoin="round"/>
+            </svg>
+          </span>
+          <span class="app-meta">
+            <h3>Sigma</h3>
+            <p>A design studio. Vectors, layers, text, clipart — export anything.</p>
+            <span class="mileage">handle: smooth · blade: sharp</span>
+          </span>
+          <span class="go">→</span>
+        </a>
+
+        <a class="app-card" href="/placeholder/">
+          <span class="tape" aria-hidden="true"></span>
+          <span class="app-icon" aria-hidden="true">
+            <svg viewBox="0 0 64 64" xmlns="http://www.w3.org/2000/svg">
+              <defs>
+                <linearGradient id="pg" x1="0" y1="0" x2="1" y2="1">
+                  <stop offset="0" stop-color="#2563eb"/>
+                  <stop offset="1" stop-color="#a855f7"/>
+                </linearGradient>
+              </defs>
+              <rect width="64" height="64" rx="14" fill="url(#pg)"/>
+              <text x="32" y="45" font-family="Arial" font-size="36" font-weight="bold" fill="white" text-anchor="middle">P</text>
+            </svg>
+          </span>
+          <span class="app-meta">
+            <h3>Placeholder</h3>
+            <p>A file converter. Images, audio, documents, data — all on-device.</p>
+            <span class="mileage">teeth: worn · still bites</span>
+          </span>
+          <span class="go">→</span>
+        </a>
+
+        <a class="app-card" href="/pigment">
+          <span class="tape" aria-hidden="true"></span>
+          <span class="app-icon" aria-hidden="true">
+            <svg viewBox="0 0 40 40" xmlns="http://www.w3.org/2000/svg">
+              <rect x="1" y="1" width="38" height="38" rx="9" fill="white" stroke="rgba(255,255,255,0.25)" stroke-width="1"/>
+              <ellipse cx="18" cy="22" rx="5.5" ry="3.8" fill="#e0342f" transform="rotate(-18 18 22)"/>
+              <ellipse cx="23" cy="19" rx="5.5" ry="3.2" fill="#f08a24" transform="rotate(14 23 19)"/>
+              <ellipse cx="22" cy="23" rx="4.5" ry="3.2" fill="#f4c20d" transform="rotate(38 22 23)"/>
+              <ellipse cx="19" cy="24" rx="4.2" ry="2.8" fill="#43a047" transform="rotate(-32 19 24)"/>
+              <ellipse cx="17" cy="23" rx="3.8" ry="2.8" fill="#18a999" transform="rotate(8 17 23)"/>
+              <ellipse cx="16" cy="21" rx="3.8" ry="2.8" fill="#2a6fdb" transform="rotate(-8 16 21)"/>
+              <ellipse cx="17" cy="19" rx="4.2" ry="2.8" fill="#9c27b0" transform="rotate(22 17 19)"/>
+              <circle cx="30" cy="11" r="2" fill="#e0342f"/>
+              <circle cx="9" cy="13" r="1.5" fill="#2a6fdb"/>
+              <circle cx="32" cy="28" r="1.3" fill="#43a047"/>
+              <circle cx="11" cy="31" r="1.6" fill="#f08a24"/>
+              <circle cx="28" cy="31" r="1.2" fill="#9c27b0"/>
+            </svg>
+          </span>
+          <span class="app-meta">
+            <h3>Pigment</h3>
+            <p>A paint and coloring studio. Freehand brushes, fill-in outlines, rainbow on tap.</p>
+            <span class="mileage">bristles: soft · palette: full</span>
+          </span>
+          <span class="go">→</span>
+        </a>
+
+      </div>
+    </section>
+
+    <!-- ============ WHY ============ -->
+    <section class="section" id="why">
+      <div class="sec-head">
+        <h2>Why one toolbox</h2>
+        <p>A good tool gets worn. A great toolbox keeps them all within reach.</p>
+      </div>
+      <div class="grid-3">
+        <div class="worn-card">
+          <span class="tool-glyph">🔑</span>
+          <h3>One key, every lock</h3>
+          <p>Make an account once and the whole wall unlocks. Your session follows you from the design bench to the converter and back — no re-typing, no re-thinking.</p>
+        </div>
+        <div class="worn-card">
+          <span class="tool-glyph">🔩</span>
+          <h3>Worn in, not worn out</h3>
+          <p>The paint's chipped because these tools get picked up every day. Underneath the scuffs, every edge is kept sharp and every function does exactly what it did on day one.</p>
+        </div>
+        <div class="worn-card">
+          <span class="tool-glyph">🧰</span>
+          <h3>Nothing you don't need</h3>
+          <p>No bundled extras, no trial timers, no eleven different logins to remember. Open the lid, grab the tool, do the work, drop it back in the tray.</p>
+        </div>
+      </div>
+    </section>
+
+    <!-- ============ FIELD NOTES ============ -->
+    <section class="section">
+      <div class="sec-head">
+        <h2>Field notes</h2>
+        <p>Scribbled on the workbench by people who use the box daily.</p>
+      </div>
+      <div class="grid-3">
+        <div class="note">
+          "I signed in on Monday to mock up a poster and somehow it's Thursday and
+          I've converted forty CSVs too. Same login. Didn't even notice the doorway."
+          <span class="who">— M. Okafor, drawer of rectangles</span>
+        </div>
+        <div class="note">
+          "The handles are scuffed exactly where my hands go. Feels like the apps
+          were used by a thousand people before me and got better each time."
+          <span class="who">— J. Marsh, spreadsheet wrangler</span>
+        </div>
+        <div class="note">
+          "I dragged my mouse across the homepage and a rainbow fell out from
+          under the dirt. Ten out of ten, would smudge again."
+          <span class="who">— R. Calloway, professional procrastinator</span>
+        </div>
+      </div>
+    </section>
+
+    <!-- ============ ON THE BENCH ============ -->
+    <section class="section">
+      <div class="sec-head">
+        <h2>On the bench</h2>
+        <p>Half-built, still warm from the forge. The wall has room for more hooks.</p>
+      </div>
+      <div class="grid-3">
+        <div class="bench-card">
+          <h3>Chisel</h3>
+          <p>Slide decks without the bloat. Currently being hammered into shape.</p>
+          <span class="eta">in the forge</span>
+        </div>
+        <div class="bench-card">
+          <h3>Whetstone</h3>
+          <p>Notes that sharpen your thinking instead of hoarding it.</p>
+          <span class="eta">blueprint stage</span>
+        </div>
+        <div class="bench-card">
+          <h3>Plumb</h3>
+          <p>Spreadsheets that stay level no matter how much you stack on them.</p>
+          <span class="eta">sketched in chalk</span>
+        </div>
+      </div>
+    </section>
+
+    <footer>
+      <div>© 2026 Toolkit. Scratches included free of charge.</div>
+      <div class="lock-line">[ one account · hashed passwords · locked-down sessions · rate-limited everything ]</div>
+    </footer>
+  </div>
+
+  <script type="module" src="/js/toolkit.js"></script>
+</body>
+</html>

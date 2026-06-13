@@ -1,0 +1,134 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Sigma — Design, together</title>
+  <link rel="icon" href="/sigma/img/favicon.svg" type="image/svg+xml">
+  <link rel="stylesheet" href="/sigma/css/site.css">
+</head>
+<body>
+  <nav class="nav">
+    <a class="brand" href="/sigma">
+      <svg class="logo" viewBox="0 0 40 40" xmlns="http://www.w3.org/2000/svg" aria-hidden="true">
+        <rect x="2" y="2" width="36" height="36" rx="9" fill="#c96f2e"/>
+        <path d="M28 12H14l8 8-8 8h14" fill="none" stroke="#f6efe2" stroke-width="3.6" stroke-linecap="round" stroke-linejoin="round"/>
+      </svg>
+      Sigma
+    </a>
+    <div class="nav-links">
+      <a href="/">⌂ Toolkit</a>
+      <a href="#features">Features</a>
+      <a href="/auth?next=%2Fsigma%2Fdashboard">Sign in</a>
+      <a class="btn btn-orange btn-small" href="/auth?mode=signup&amp;next=%2Fsigma%2Fdashboard">Get started</a>
+    </div>
+  </nav>
+
+  <header class="hero">
+    <div>
+      <h1>Design <span class="accent-orange">warmly</span>.<br>Ship <span class="accent-turquoise">beautifully</span>.</h1>
+      <p class="lead">
+        Sigma is a browser-based design studio for interfaces, illustrations and
+        everything in between. Sketch with vector tools, organize with layers,
+        and export pixel-perfect results — no installs, no fuss.
+      </p>
+      <div class="hero-actions">
+        <a class="btn btn-orange" href="/auth?mode=signup&amp;next=%2Fsigma%2Fdashboard">Start designing — it's free</a>
+        <a class="btn btn-ghost" href="#features">See what's inside</a>
+      </div>
+    </div>
+    <div class="hero-art">
+      <svg viewBox="0 0 560 400" xmlns="http://www.w3.org/2000/svg" role="img" aria-label="Illustration of the Sigma editor">
+        <rect width="560" height="400" rx="12" fill="#f1e7d2"/>
+        <!-- editor chrome -->
+        <rect x="0" y="0" width="560" height="34" rx="12" fill="#3b2c20"/>
+        <circle cx="20" cy="17" r="5" fill="#c96f2e"/>
+        <circle cx="38" cy="17" r="5" fill="#3aa79c"/>
+        <circle cx="56" cy="17" r="5" fill="#e8a468"/>
+        <rect x="0" y="34" width="56" height="366" fill="#4a382a"/>
+        <g fill="#f6efe2" opacity="0.85">
+          <rect x="18" y="56" width="20" height="20" rx="5"/>
+          <circle cx="28" cy="106" r="10"/>
+          <path d="M18 140 l20 0 -10 18 z"/>
+          <rect x="18" y="180" width="20" height="4" rx="2"/>
+          <rect x="18" y="190" width="20" height="4" rx="2"/>
+        </g>
+        <!-- canvas artboard -->
+        <rect x="96" y="70" width="300" height="290" rx="8" fill="#fdf9f0" stroke="#e0d3bb"/>
+        <rect x="120" y="95" width="120" height="80" rx="10" fill="#3aa79c"/>
+        <circle cx="310" cy="150" r="48" fill="#c96f2e"/>
+        <rect x="120" y="200" width="250" height="14" rx="7" fill="#e0d3bb"/>
+        <rect x="120" y="226" width="190" height="14" rx="7" fill="#e0d3bb"/>
+        <path d="M140 330 q40 -60 80 -20 t90 -10" fill="none" stroke="#2b7f77" stroke-width="6" stroke-linecap="round"/>
+        <!-- sun clipart -->
+        <g transform="translate(330 290)">
+          <circle r="22" fill="#e8a468"/>
+          <g stroke="#e8a468" stroke-width="5" stroke-linecap="round">
+            <line x1="0" y1="-34" x2="0" y2="-42"/><line x1="0" y1="34" x2="0" y2="42"/>
+            <line x1="-34" y1="0" x2="-42" y2="0"/><line x1="34" y1="0" x2="42" y2="0"/>
+            <line x1="-25" y1="-25" x2="-31" y2="-31"/><line x1="25" y1="25" x2="31" y2="31"/>
+            <line x1="-25" y1="25" x2="-31" y2="31"/><line x1="25" y1="-25" x2="31" y2="-31"/>
+          </g>
+        </g>
+        <!-- properties panel -->
+        <rect x="420" y="34" width="140" height="366" fill="#fdf9f0" stroke="#e0d3bb"/>
+        <rect x="436" y="60" width="108" height="10" rx="5" fill="#e0d3bb"/>
+        <rect x="436" y="84" width="70" height="10" rx="5" fill="#e0d3bb"/>
+        <rect x="436" y="116" width="46" height="28" rx="6" fill="#3aa79c"/>
+        <rect x="496" y="116" width="46" height="28" rx="6" fill="#c96f2e"/>
+        <rect x="436" y="160" width="108" height="10" rx="5" fill="#e0d3bb"/>
+        <rect x="436" y="184" width="84" height="10" rx="5" fill="#e0d3bb"/>
+        <!-- cursor -->
+        <path d="M250 250 l14 34 6-13 13-6 z" fill="#3b2c20"/>
+      </svg>
+    </div>
+  </header>
+
+  <section class="features" id="features">
+    <h2>Everything you need to design</h2>
+    <p class="sub">The core tools you know, in a warm and simple package.</p>
+    <div class="feature-grid">
+      <div class="feature">
+        <div class="icon icon-orange">▱</div>
+        <h3>Vector tools</h3>
+        <p>Rectangles, ellipses, lines, polygons, stars and a pen tool for freeform paths. Rotate, round corners and style everything.</p>
+      </div>
+      <div class="feature">
+        <div class="icon icon-turquoise">≡</div>
+        <h3>Layers &amp; groups</h3>
+        <p>A full layers panel with reordering, renaming, hiding, locking and grouping — stay organized as designs grow.</p>
+      </div>
+      <div class="feature">
+        <div class="icon icon-orange">T</div>
+        <h3>Typography</h3>
+        <p>Add and edit text right on the canvas with font, size, weight, alignment and color controls.</p>
+      </div>
+      <div class="feature">
+        <div class="icon icon-turquoise">✦</div>
+        <h3>Clipart library</h3>
+        <p>A built-in library of hand-made clipart — suns, cacti, houses, rockets and more — ready to drop into any project.</p>
+      </div>
+      <div class="feature">
+        <div class="icon icon-orange">⤓</div>
+        <h3>Export anything</h3>
+        <p>Export your artboard or selection as PNG, JPEG or SVG at 1×, 2× or 4× — ready for the web or print.</p>
+      </div>
+      <div class="feature">
+        <div class="icon icon-turquoise">🔒</div>
+        <h3>Safe &amp; private</h3>
+        <p>Your account is protected with hashed passwords, locked-down sessions, rate limiting and strict security headers.</p>
+      </div>
+    </div>
+  </section>
+
+  <section class="cta-banner">
+    <h2>Your next design is a click away</h2>
+    <p>Create a free account and start your first project in seconds.</p>
+    <a class="btn btn-orange" href="/auth?mode=signup&amp;next=%2Fsigma%2Fdashboard">Create your account</a>
+  </section>
+
+  <footer class="footer">
+    Sigma — a handcrafted design studio. Made with orange, turquoise and beige.
+  </footer>
+</body>
+</html>

@@ -1,0 +1,17 @@
+{
+  "name": "toolkit",
+  "version": "1.0.0",
+  "description": "Toolkit - one channel for every app. Hosts Sigma and Placeholder behind a single shared sign-in.",
+  "main": "server/index.js",
+  "type": "commonjs",
+  "scripts": {
+    "start": "node server/index.js",
+    "dev": "node server/index.js"
+  },
+  "dependencies": {
+    "bcryptjs": "^2.4.3",
+    "express": "^4.19.2",
+    "express-rate-limit": "^7.4.0",
+    "helmet": "^7.1.0"
+  }
+}

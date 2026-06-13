@@ -1,0 +1,300 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Editor — Sigma</title>
+  <link rel="icon" href="/sigma/img/favicon.svg" type="image/svg+xml">
+  <link rel="stylesheet" href="/sigma/css/editor.css">
+</head>
+<body>
+  <header id="topbar">
+    <div class="tb-left">
+      <a class="tb-home" href="/sigma/dashboard" title="Back to projects">
+        <svg viewBox="0 0 40 40" width="26" height="26" aria-hidden="true">
+          <rect x="2" y="2" width="36" height="36" rx="9" fill="#c96f2e"/>
+          <path d="M28 12H14l8 8-8 8h14" fill="none" stroke="#f6efe2" stroke-width="3.6" stroke-linecap="round" stroke-linejoin="round"/>
+        </svg>
+      </a>
+      <input id="project-name" maxlength="80" spellcheck="false" aria-label="Project name">
+      <span id="save-status" title="Save status">Saved</span>
+    </div>
+
+    <div class="tb-tools" role="toolbar" aria-label="Tools">
+      <button class="tool-btn" data-tool="select" title="Move / Select (V)">
+        <svg viewBox="0 0 20 20"><path d="M5 2 L15 11 L10.5 11.5 L13 17 L11 18 L8.5 12.5 L5 15.5 Z" fill="currentColor"/></svg>
+      </button>
+      <button class="tool-btn" data-tool="hand" title="Hand — pan (H or hold Space)">
+        <svg viewBox="0 0 20 20"><path d="M7 9 V4.5 a1.2 1.2 0 0 1 2.4 0 V8 m0 -4.5 a1.2 1.2 0 0 1 2.4 0 V8 m0 -3 a1.2 1.2 0 0 1 2.4 0 V11 c0 4 -2 7 -5.5 7 c-2.5 0 -3.8 -1.2 -4.8 -3.4 L2.6 11.8 a1.3 1.3 0 0 1 2.2 -1.3 L6 12.5 V9 a1.2 1.2 0 0 1 1 -1.2" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round"/></svg>
+      </button>
+      <span class="tb-sep"></span>
+      <button class="tool-btn" data-tool="rect" title="Rectangle (R)">
+        <svg viewBox="0 0 20 20"><rect x="3" y="4.5" width="14" height="11" rx="1" fill="none" stroke="currentColor" stroke-width="1.6"/></svg>
+      </button>
+      <button class="tool-btn" data-tool="ellipse" title="Ellipse (O)">
+        <svg viewBox="0 0 20 20"><ellipse cx="10" cy="10" rx="7" ry="5.5" fill="none" stroke="currentColor" stroke-width="1.6"/></svg>
+      </button>
+      <button class="tool-btn" data-tool="line" title="Line (L)">
+        <svg viewBox="0 0 20 20"><line x1="4" y1="16" x2="16" y2="4" stroke="currentColor" stroke-width="1.8" stroke-linecap="round"/></svg>
+      </button>
+      <button class="tool-btn" data-tool="polygon" title="Polygon (G)">
+        <svg viewBox="0 0 20 20"><polygon points="10,3 17,8.2 14.3,16.5 5.7,16.5 3,8.2" fill="none" stroke="currentColor" stroke-width="1.6" stroke-linejoin="round"/></svg>
+      </button>
+      <button class="tool-btn" data-tool="star" title="Star (S)">
+        <svg viewBox="0 0 20 20"><polygon points="10,2.5 12.2,7.2 17.4,7.6 13.5,11 14.7,16.2 10,13.4 5.3,16.2 6.5,11 2.6,7.6 7.8,7.2" fill="none" stroke="currentColor" stroke-width="1.4" stroke-linejoin="round"/></svg>
+      </button>
+      <button class="tool-btn" data-tool="pen" title="Pen (P) — click points, Enter to finish">
+        <svg viewBox="0 0 20 20"><path d="M4 16 L5.5 11 L13.5 3 L17 6.5 L9 14.5 Z M5.5 11 L9 14.5" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linejoin="round"/></svg>
+      </button>
+      <button class="tool-btn" data-tool="text" title="Text (T)">
+        <svg viewBox="0 0 20 20"><path d="M4 5 V3.5 H16 V5 M10 3.5 V16.5 M7.5 16.5 H12.5" fill="none" stroke="currentColor" stroke-width="1.6" stroke-linecap="round"/></svg>
+      </button>
+      <button class="tool-btn" id="clipart-btn" title="Clipart (C)">
+        <svg viewBox="0 0 20 20"><path d="M10 2.8 L11.6 7.6 L16.6 7.6 L12.6 10.7 L14.1 15.6 L10 12.7 L5.9 15.6 L7.4 10.7 L3.4 7.6 L8.4 7.6 Z" fill="currentColor" opacity="0.5"/><circle cx="15.4" cy="4.6" r="2.4" fill="currentColor"/></svg>
+      </button>
+    </div>
+
+    <div class="tb-right">
+      <button class="tb-btn" id="undo-btn" title="Undo (Ctrl+Z)">↩</button>
+      <button class="tb-btn" id="redo-btn" title="Redo (Ctrl+Shift+Z)">↪</button>
+      <span class="tb-sep"></span>
+      <button class="tb-btn" id="zoom-out-btn" title="Zoom out (-)">−</button>
+      <button class="tb-btn" id="zoom-label" title="Reset zoom (Ctrl+0)">100%</button>
+      <button class="tb-btn" id="zoom-in-btn" title="Zoom in (+)">+</button>
+      <button class="tb-btn" id="zoom-fit-btn" title="Fit artboard (Ctrl+1)">⛶</button>
+      <span class="tb-sep"></span>
+      <button class="tb-btn" id="help-btn" title="Keyboard shortcuts (?)">?</button>
+      <button class="export-btn" id="export-btn" type="button">Export</button>
+    </div>
+  </header>
+
+  <main id="workspace">
+    <aside id="layers-panel">
+      <div class="panel-title">Layers</div>
+      <div id="layers-list" role="list"></div>
+    </aside>
+
+    <div id="canvas-wrap" data-tool="select">
+      <svg id="viewport" tabindex="0"></svg>
+      <textarea id="text-editor" spellcheck="false" hidden></textarea>
+      <div id="hint-bar" hidden></div>
+    </div>
+
+    <aside id="props-panel">
+      <div class="panel-title">Design</div>
+      <div id="props-scroll">
+
+        <section id="props-artboard" hidden>
+          <div class="sec-label">Artboard</div>
+          <div class="row">
+            <label class="num-field"><span>W</span><input type="number" id="ab-w" min="16" max="8000"></label>
+            <label class="num-field"><span>H</span><input type="number" id="ab-h" min="16" max="8000"></label>
+          </div>
+          <div class="row">
+            <label class="color-field"><span>Background</span><input type="color" id="ab-bg"></label>
+          </div>
+          <div class="row">
+            <select id="ab-preset" aria-label="Artboard preset">
+              <option value="">Preset sizes…</option>
+              <option value="1280x800">Desktop — 1280 × 800</option>
+              <option value="1920x1080">Full HD — 1920 × 1080</option>
+              <option value="1080x1080">Square — 1080 × 1080</option>
+              <option value="1080x1920">Story — 1080 × 1920</option>
+              <option value="390x844">Phone — 390 × 844</option>
+              <option value="820x1180">Tablet — 820 × 1180</option>
+              <option value="794x1123">A4 — 794 × 1123</option>
+            </select>
+          </div>
+        </section>
+
+        <section id="props-transform" hidden>
+          <div class="sec-label">Transform</div>
+          <div class="row">
+            <label class="num-field"><span>X</span><input type="number" id="nd-x" step="1"></label>
+            <label class="num-field"><span>Y</span><input type="number" id="nd-y" step="1"></label>
+          </div>
+          <div class="row">
+            <label class="num-field"><span>W</span><input type="number" id="nd-w" min="1" step="1"></label>
+            <label class="num-field"><span>H</span><input type="number" id="nd-h" min="1" step="1"></label>
+          </div>
+          <div class="row">
+            <label class="num-field"><span>↻</span><input type="number" id="nd-rot" step="1" title="Rotation"></label>
+            <label class="num-field"><span>◐</span><input type="number" id="nd-opacity" min="0" max="100" step="5" title="Opacity %"></label>
+          </div>
+        </section>
+
+        <section id="props-rect" hidden>
+          <div class="row">
+            <label class="num-field"><span>⌒</span><input type="number" id="nd-rx" min="0" step="1" title="Corner radius"></label>
+          </div>
+        </section>
+
+        <section id="props-poly" hidden>
+          <div class="row">
+            <label class="num-field"><span>#</span><input type="number" id="nd-sides" min="3" max="24" step="1" title="Sides / points"></label>
+            <label class="num-field" id="star-ratio-field"><span>★</span><input type="number" id="nd-inner" min="5" max="95" step="5" title="Star inner radius %"></label>
+          </div>
+        </section>
+
+        <section id="props-fill" hidden>
+          <div class="sec-label">Fill</div>
+          <div class="row">
+            <label class="color-field"><input type="color" id="nd-fill"><span>Color</span></label>
+            <label class="check-field"><input type="checkbox" id="nd-fill-none">None</label>
+          </div>
+        </section>
+
+        <section id="props-stroke" hidden>
+          <div class="sec-label">Stroke</div>
+          <div class="row">
+            <label class="color-field"><input type="color" id="nd-stroke"><span>Color</span></label>
+            <label class="check-field"><input type="checkbox" id="nd-stroke-none">None</label>
+          </div>
+          <div class="row">
+            <label class="num-field"><span>↔</span><input type="number" id="nd-stroke-w" min="0" max="200" step="1" title="Stroke width"></label>
+          </div>
+        </section>
+
+        <section id="props-text" hidden>
+          <div class="sec-label">Text</div>
+          <div class="row">
+            <select id="nd-font" aria-label="Font family">
+              <option>Arial</option>
+              <option>Verdana</option>
+              <option>Tahoma</option>
+              <option>Trebuchet MS</option>
+              <option>Georgia</option>
+              <option value="Times New Roman">Times New Roman</option>
+              <option value="Courier New">Courier New</option>
+              <option>Impact</option>
+              <option value="Comic Sans MS">Comic Sans MS</option>
+              <option>Segoe UI</option>
+            </select>
+          </div>
+          <div class="row">
+            <label class="num-field"><span>Aa</span><input type="number" id="nd-fontsize" min="4" max="600" step="1" title="Font size"></label>
+            <select id="nd-weight" aria-label="Font weight">
+              <option value="400">Regular</option>
+              <option value="600">Semibold</option>
+              <option value="700">Bold</option>
+            </select>
+          </div>
+          <div class="row btn-row" id="align-text-row">
+            <button class="mini-btn" data-talign="left" title="Align left">⫷</button>
+            <button class="mini-btn" data-talign="center" title="Align center">≡</button>
+            <button class="mini-btn" data-talign="right" title="Align right">⫸</button>
+          </div>
+        </section>
+
+        <section id="props-clipart" hidden>
+          <div class="sec-label">Clipart</div>
+          <div class="row">
+            <label class="color-field"><input type="color" id="nd-tint"><span>Tint</span></label>
+          </div>
+        </section>
+
+        <section id="props-align" hidden>
+          <div class="sec-label">Align</div>
+          <div class="row btn-row">
+            <button class="mini-btn" data-align="left" title="Align left">⊏</button>
+            <button class="mini-btn" data-align="hcenter" title="Align horizontal centers">⊟</button>
+            <button class="mini-btn" data-align="right" title="Align right">⊐</button>
+            <button class="mini-btn" data-align="top" title="Align top">⊓</button>
+            <button class="mini-btn" data-align="vcenter" title="Align vertical centers">⊞</button>
+            <button class="mini-btn" data-align="bottom" title="Align bottom">⊔</button>
+          </div>
+        </section>
+
+        <section id="props-arrange" hidden>
+          <div class="sec-label">Arrange</div>
+          <div class="row btn-row">
+            <button class="mini-btn wide" data-arrange="back" title="Send to back (Ctrl+Alt+[)">⤓</button>
+            <button class="mini-btn wide" data-arrange="backward" title="Send backward (Ctrl+[)">↓</button>
+            <button class="mini-btn wide" data-arrange="forward" title="Bring forward (Ctrl+])">↑</button>
+            <button class="mini-btn wide" data-arrange="front" title="Bring to front (Ctrl+Alt+])">⤒</button>
+          </div>
+          <div class="row btn-row">
+            <button class="mini-btn grow" id="group-btn" title="Group (Ctrl+G)">Group</button>
+            <button class="mini-btn grow" id="ungroup-btn" title="Ungroup (Ctrl+Shift+G)">Ungroup</button>
+          </div>
+        </section>
+
+      </div>
+    </aside>
+  </main>
+
+  <!-- clipart picker -->
+  <div class="modal-backdrop" id="clipart-modal">
+    <div class="modal modal-wide">
+      <div class="modal-head">
+        <h2>Clipart library</h2>
+        <button class="modal-close" data-close="clipart-modal">✕</button>
+      </div>
+      <p class="modal-sub">Pick a piece, then click the canvas to place it.</p>
+      <div id="clipart-grid"></div>
+    </div>
+  </div>
+
+  <!-- export dialog -->
+  <div class="modal-backdrop" id="export-modal">
+    <div class="modal">
+      <div class="modal-head">
+        <h2>Export</h2>
+        <button class="modal-close" data-close="export-modal">✕</button>
+      </div>
+      <div class="field-row">
+        <label>Format</label>
+        <select id="export-format">
+          <option value="png">PNG</option>
+          <option value="jpeg">JPEG</option>
+          <option value="svg">SVG</option>
+        </select>
+      </div>
+      <div class="field-row" id="export-scale-row">
+        <label>Scale</label>
+        <select id="export-scale">
+          <option value="1">1×</option>
+          <option value="2">2×</option>
+          <option value="4">4×</option>
+        </select>
+      </div>
+      <div class="field-row">
+        <label>Area</label>
+        <select id="export-scope">
+          <option value="artboard">Artboard</option>
+          <option value="selection">Selection</option>
+        </select>
+      </div>
+      <div class="modal-actions">
+        <button class="primary-btn" id="export-go">Export</button>
+      </div>
+    </div>
+  </div>
+
+  <!-- shortcuts -->
+  <div class="modal-backdrop" id="help-modal">
+    <div class="modal">
+      <div class="modal-head">
+        <h2>Shortcuts</h2>
+        <button class="modal-close" data-close="help-modal">✕</button>
+      </div>
+      <table class="help-table">
+        <tr><td>V / H / R / O / L / G / S / P / T / C</td><td>Tools</td></tr>
+        <tr><td>Space + drag, scroll</td><td>Pan canvas</td></tr>
+        <tr><td>Ctrl + scroll</td><td>Zoom</td></tr>
+        <tr><td>Ctrl+Z / Ctrl+Shift+Z</td><td>Undo / redo</td></tr>
+        <tr><td>Ctrl+C / V / D</td><td>Copy / paste / duplicate</td></tr>
+        <tr><td>Ctrl+G / Ctrl+Shift+G</td><td>Group / ungroup</td></tr>
+        <tr><td>Ctrl+[ / Ctrl+]</td><td>Move backward / forward</td></tr>
+        <tr><td>Arrows (+Shift)</td><td>Nudge 1px (10px)</td></tr>
+        <tr><td>Delete</td><td>Delete selection</td></tr>
+        <tr><td>Enter / Esc</td><td>Finish / cancel pen path</td></tr>
+        <tr><td>Double-click text</td><td>Edit text</td></tr>
+        <tr><td>Shift while resizing</td><td>Keep proportions</td></tr>
+      </table>
+    </div>
+  </div>
+
+  <script type="module" src="/sigma/js/editor/main.js"></script>
+</body>
+</html>
