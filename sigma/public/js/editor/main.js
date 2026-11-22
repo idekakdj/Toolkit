@@ -3,7 +3,7 @@ import { api, redirectIfSignedOut } from '../api.js';
 import {
   state, events, getNode, getSelectedNodes, setSelection, expandGroups,
   pushUndo, undo, redo, canUndo, canRedo, snapshot, markDirty,
-  baseNode, rotatePoint, nodeAABB, selectionBBox,
+  baseNode, rotatePoint, nodeAABB, selectionBBox, commitNodeText,
   deleteSelected, duplicateSelected, copySelected, pasteClipboard,
   groupSelection, ungroupSelection, reorder,
 } from './state.js';
@@ -15,6 +15,9 @@ import { initLayers } from './panels.js';
 import { initProps } from './panels.js';
 import { exportFile, makeThumbnail } from './export.js';
 import { CLIPART, getClipart } from './clipart.js';
+import { initImageImport } from './imageimport.js';
+import { createSaver } from './persistence.js';
+import { initDialogs, showDialog, hideDialog } from '../dialogs.js';
 
 const $ = (id) => document.getElementById(id);
 const svg = $('viewport');
@@ -31,6 +34,7 @@ async function loadProject() {
     const data = await api(`/api/projects/${projectId}`);
     state.projectId = projectId;
     state.projectName = data.project.name;
+    state.serverRevision = data.project.revision ?? 0;
     const doc = data.project.document;
     if (doc && doc.artboard && Array.isArray(doc.nodes)) {
       state.doc.artboard = { name: 'Artboard', w: 1280, h: 800, bg: '#ffffff', ...doc.artboard };
@@ -39,15 +43,12 @@ async function loadProject() {
     $('project-name').value = state.projectName;
     document.title = `${state.projectName} — Sigma`;
   } catch (err) {
-    if (!redirectIfSignedOut(err)) window.location.href = '/dashboard';
+    if (!redirectIfSignedOut(err)) window.location.href = '/sigma/dashboard';
     throw err;
   }
 }
 
 let saveTimer = null;
-let saving = false;
-let saveQueued = false;
-
 function setSaveStatus(text, cls = '') {
   const el = $('save-status');
   el.textContent = text;
@@ -55,44 +56,45 @@ function setSaveStatus(text, cls = '') {
 }
 
 function scheduleSave() {
+  if (state.saveConflict) return;
   setSaveStatus('Edited', 'saving');
   clearTimeout(saveTimer);
   saveTimer = setTimeout(saveNow, 1500);
 }
 
-async function saveNow() {
-  if (saving) { saveQueued = true; return; }
-  if (!state.dirty) return;
-  saving = true;
-  state.dirty = false;
-  setSaveStatus('Saving…', 'saving');
-  try {
-    const thumbnail = await makeThumbnail();
-    const body = { document: { version: 1, artboard: state.doc.artboard, nodes: state.doc.nodes } };
-    if (thumbnail) body.thumbnail = thumbnail;
-    await api(`/api/projects/${projectId}`, { method: 'PUT', body });
-    setSaveStatus('Saved');
-  } catch (err) {
-    state.dirty = true;
-    setSaveStatus('Save failed — retrying', 'error');
-    if (!redirectIfSignedOut(err)) setTimeout(saveNow, 5000);
-  } finally {
-    saving = false;
-    if (saveQueued) { saveQueued = false; saveNow(); }
-  }
+// Rename and autosave share one write queue and use the latest acknowledged revision.
+let writeQueue = Promise.resolve();
+function writeProject(body) {
+  const pending = writeQueue.then(async () => {
+    if (state.saveConflict) throw Object.assign(new Error('Save conflict: export local edits, then reload.'), { status: 409 });
+    try {
+      const result = await api(`/api/projects/${projectId}`, { method: 'PUT', body: { ...body, baseRevision: state.serverRevision ?? 0 } });
+      state.serverRevision = result.project.revision;
+      return result;
+    } catch (err) {
+      if (err.status === 409) {
+        state.saveConflict = true; state.dirty = true; clearTimeout(saveTimer);
+        setSaveStatus('Save conflict: changed in another tab. Local edits kept; use Export, then reload to resume saving.', 'error');
+      }
+      throw err;
+    }
+  });
+  writeQueue = pending.catch(() => {});
+  return pending;
 }
 
-window.addEventListener('beforeunload', () => {
+const saveNow = createSaver({
+  state, thumbnail: makeThumbnail,
+  write: writeProject,
+  status: setSaveStatus, signedOut: redirectIfSignedOut,
+  retry: save => { clearTimeout(saveTimer); saveTimer = setTimeout(save, 5000); },
+});
+
+window.addEventListener('beforeunload', (e) => {
+  if (state.editingTextId) commitTextEdit();
   if (state.dirty) {
-    clearTimeout(saveTimer);
-    // Best effort flush; keepalive allows custom headers unlike sendBeacon.
-    fetch(`/api/projects/${projectId}`, {
-      method: 'PUT',
-      keepalive: true,
-      credentials: 'same-origin',
-      headers: { 'Content-Type': 'application/json', 'X-Requested-With': 'sigma' },
-      body: JSON.stringify({ document: { version: 1, artboard: state.doc.artboard, nodes: state.doc.nodes } }),
-    }).catch(() => {});
+    e.preventDefault();
+    e.returnValue = '';
   }
 });
 
@@ -100,11 +102,11 @@ $('project-name').addEventListener('change', async (e) => {
   const name = e.target.value.trim();
   if (!name) { e.target.value = state.projectName; return; }
   try {
-    await api(`/api/projects/${projectId}`, { method: 'PUT', body: { name } });
+    await writeProject({ name });
     state.projectName = name;
     document.title = `${name} — Sigma`;
   } catch (err) {
-    if (!redirectIfSignedOut(err)) e.target.value = state.projectName;
+    if (err.status !== 409 && !redirectIfSignedOut(err)) e.target.value = state.projectName;
   }
 });
 
@@ -123,6 +125,7 @@ function setTool(tool) {
   canvasWrap.dataset.tool = tool;
   for (const btn of document.querySelectorAll('.tool-btn[data-tool]')) {
     btn.classList.toggle('active', btn.dataset.tool === tool);
+    btn.setAttribute('aria-pressed', String(btn.dataset.tool === tool));
   }
   $('clipart-btn').classList.toggle('active', tool === 'clipart');
   const hint = $('hint-bar');
@@ -191,6 +194,7 @@ function startStates() {
 }
 
 svg.addEventListener('pointerdown', (e) => {
+  if (e.button !== 0 && e.button !== 1) return;
   if (state.editingTextId) commitTextEdit();
   svg.focus({ preventScroll: true });
   const sp = eventPoint(e);
@@ -630,15 +634,9 @@ function commitTextEdit() {
   ta.hidden = true;
   if (!node) return;
   const text = ta.value.replace(/\s+$/, '');
-  if (!text.trim()) {
-    state.doc.nodes = state.doc.nodes.filter(n => n.id !== id);
-    setSelection([]);
-  } else if (text !== node.text) {
-    if (!editingIsNew) pushUndo();
-    node.text = text;
-  }
+  commitNodeText(id, text, editingIsNew);
   editingIsNew = false;
-  markDirty();
+  renderDoc();
 }
 
 // ---------------- clipart ----------------
@@ -680,19 +678,13 @@ function placeClipart(wp) {
 $('clipart-btn').addEventListener('click', () => showModal('clipart-modal'));
 
 // ---------------- modals ----------------
-function showModal(id) { $(id).classList.add('show'); }
-function hideModal(id) { $(id).classList.remove('show'); }
+function showModal(id) { showDialog($(id)); }
+function hideModal(id) { hideDialog($(id)); }
 
-for (const btn of document.querySelectorAll('[data-close]')) {
-  btn.addEventListener('click', () => hideModal(btn.dataset.close));
-}
-for (const backdrop of document.querySelectorAll('.modal-backdrop')) {
-  backdrop.addEventListener('click', (e) => {
-    if (e.target === backdrop) backdrop.classList.remove('show');
-  });
-}
+initDialogs();
 
 $('export-btn').addEventListener('click', () => {
+  commitTextEdit();
   $('export-scope').querySelector('[value="selection"]').disabled = !state.selection.length;
   if (!state.selection.length) $('export-scope').value = 'artboard';
   showModal('export-modal');
@@ -726,7 +718,8 @@ function inTextInput(e) {
 }
 
 window.addEventListener('keydown', (e) => {
-  if (inTextInput(e)) return;
+  if (document.querySelector('.modal-backdrop.show') || inTextInput(e)) return;
+  if ((e.target.closest?.('button, a') && [' ', 'Enter'].includes(e.key))) return;
   const ctrl = e.ctrlKey || e.metaKey;
   const key = e.key.toLowerCase();
 
@@ -786,6 +779,14 @@ window.addEventListener('keydown', (e) => {
   if (key === '-') { setZoom(state.zoom / 1.25); return; }
 });
 
+svg.addEventListener('pointercancel', () => {
+  if (drag?.kind === 'draw') finishDraw(drag);
+  drag = null;
+  setMarquee(null);
+  canvasWrap.classList.remove('panning');
+});
+window.addEventListener('blur', () => { spaceHeld = false; canvasWrap.classList.remove('panning'); });
+
 window.addEventListener('keyup', (e) => {
   if (e.key === ' ') { spaceHeld = false; if (!drag) canvasWrap.classList.remove('panning'); }
 });
@@ -806,11 +807,12 @@ window.addEventListener('resize', () => { applyView(); });
 
 // ---------------- boot ----------------
 (async function boot() {
-  await loadProject();
+  try { await loadProject(); } catch { return; }
   initRender(svg);
   initLayers();
   initProps();
   buildClipartGrid();
+  initImageImport();
   renderDoc();
   fitArtboard();
   events.emit('selection');

@@ -1,0 +1,25 @@
+**/node_modules/
+toolkit/data/
+dist/
+*.log
+
+# Secrets, keys and database copies must never be committed
+.env
+*.env
+!toolkit/deploy/toolkit.env.example
+.env.*
+!.env.example
+*.pem
+*.key
+*.pfx
+*.p12
+db.json
+db.json.bak
+db.json.premigration
+db.json.tmp
+audit/
+runtime.json
+mail.json
+
+# Personal editor/tool state
+.claude/settings.local.json

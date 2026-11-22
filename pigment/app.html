@@ -12,6 +12,17 @@
   <!-- TOP BAR -->
   <header id="topbar">
 
+    <!-- Back to the Toolkit home -->
+    <a class="tb-btn tb-home" href="/" title="Back to Toolkit (Ctrl+Shift+X)" aria-label="Back to Toolkit home">
+      <svg viewBox="0 0 20 20" xmlns="http://www.w3.org/2000/svg" aria-hidden="true">
+        <rect x="3" y="3" width="6" height="6" rx="1.4" fill="none" stroke="currentColor" stroke-width="1.6"/>
+        <rect x="11" y="3" width="6" height="6" rx="1.4" fill="none" stroke="currentColor" stroke-width="1.6"/>
+        <rect x="3" y="11" width="6" height="6" rx="1.4" fill="none" stroke="currentColor" stroke-width="1.6"/>
+        <rect x="11" y="11" width="6" height="6" rx="1.4" fill="none" stroke="currentColor" stroke-width="1.6"/>
+      </svg>
+      <span>Toolkit</span>
+    </a>
+
     <!-- Brand -->
     <a class="tb-brand" href="/pigment" title="Back to Pigment">
       <svg viewBox="0 0 40 40" xmlns="http://www.w3.org/2000/svg" aria-hidden="true">
@@ -32,7 +43,7 @@
     <input id="painting-name" type="text" maxlength="80" placeholder="Untitled painting" spellcheck="false" aria-label="Painting name">
 
     <!-- Save status -->
-    <span id="save-status" title="Save status">Saved</span>
+    <span id="save-status" role="status" aria-live="polite" title="Save status">Saved</span>
 
     <span class="tb-sep"></span>
 
@@ -83,12 +94,12 @@
         </svg>
         <span>Library</span>
       </button>
-      <button id="import-btn" class="tb-btn" title="Import from Sigma">
+      <button id="import-btn" class="tb-btn" title="Import from Sigma or ImageVendor">
         <svg viewBox="0 0 20 20" xmlns="http://www.w3.org/2000/svg" aria-hidden="true">
           <path d="M10 3 V13 M6 9 L10 13 L14 9" stroke="currentColor" stroke-width="1.6" fill="none" stroke-linecap="round" stroke-linejoin="round"/>
           <path d="M4 15 H16" stroke="currentColor" stroke-width="1.5" stroke-linecap="round"/>
         </svg>
-        <span>From Sigma</span>
+        <span>Import</span>
       </button>
       <button id="export-btn" class="tb-btn tb-btn-primary" title="Export / send">
         <svg viewBox="0 0 20 20" xmlns="http://www.w3.org/2000/svg" aria-hidden="true">
@@ -117,6 +128,19 @@
         <span class="tool-label">Brush</span>
       </button>
 
+      <button class="tool-btn" data-tool="rectangle" title="Rectangle (R) - Shift for square">
+        <svg viewBox="0 0 20 20" xmlns="http://www.w3.org/2000/svg" aria-hidden="true">
+          <rect x="3" y="5" width="14" height="10" fill="none" stroke="currentColor" stroke-width="1.5"/>
+        </svg>
+        <span class="tool-label">Rectangle</span>
+      </button>
+      <button class="tool-btn" data-tool="ellipse" title="Ellipse (O) - Shift for circle">
+        <svg viewBox="0 0 20 20" xmlns="http://www.w3.org/2000/svg" aria-hidden="true">
+          <ellipse cx="10" cy="10" rx="7" ry="5" fill="none" stroke="currentColor" stroke-width="1.5"/>
+        </svg>
+        <span class="tool-label">Ellipse</span>
+      </button>
+
       <!-- Eraser -->
       <button class="tool-btn" data-tool="eraser" title="Eraser (E)">
         <svg viewBox="0 0 20 20" xmlns="http://www.w3.org/2000/svg" aria-hidden="true">
@@ -141,7 +165,7 @@
 
       <!-- Brush size -->
       <div class="rail-size-wrap">
-        <span class="rail-label">Size</span>
+        <span class="rail-label">Size <span class="rail-size-value" id="brush-size-value">8</span></span>
         <input id="brush-size" type="range" min="2" max="60" value="8" aria-label="Brush size">
       </div>
 
@@ -237,11 +261,15 @@
   <div class="modal-backdrop" id="import-modal">
     <div class="modal">
       <div class="modal-head">
-        <h2>Import from Sigma</h2>
+        <h2>Import</h2>
         <button class="modal-close" data-close="import-modal" aria-label="Close import">✕</button>
       </div>
-      <p class="modal-sub">Your Sigma projects are listed below. Choose one to bring its artwork into Pigment as a coloring outline.</p>
-      <div id="import-grid" role="list" aria-label="Sigma projects"></div>
+      <p class="modal-sub">Choose a source, then pick an item to import onto your canvas.</p>
+      <div class="import-src-row" role="tablist" aria-label="Import source">
+        <button class="import-src active" data-src="sigma" role="tab" aria-selected="true">Sigma</button>
+        <button class="import-src" data-src="imagevendor" role="tab" aria-selected="false">ImageVendor</button>
+      </div>
+      <div id="import-grid" role="list" aria-label="Import items"></div>
     </div>
   </div>
 

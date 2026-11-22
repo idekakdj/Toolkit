@@ -28,7 +28,7 @@ Placeholder and every future app in the shell.
 | Dashboard | Create, rename, delete, open projects (with live thumbnails) |
 | Editor | Move/select, hand, rectangle, ellipse, line, polygon, star, pen, text, clipart |
 | Layers | Reorder (drag), rename, hide, lock, group/ungroup |
-| Styling | Fill, stroke, opacity, corner radius, rotation, fonts, alignment |
+| Styling | Fill, stroke, opacity, corner radius, rotation, fonts, alignment, equal horizontal/vertical gaps |
 | Export | PNG / JPEG / SVG at 1×, 2×, 4× — artboard or selection |
 | Clipart | 19 original hand-drawn pieces, several recolorable |
 
@@ -43,12 +43,22 @@ Placeholder and every future app in the shell.
 - CSRF defence: SameSite cookies + Origin check + required custom header.
 - Helmet security headers with a strict Content-Security-Policy
   (no inline/external scripts, `frame-ancestors 'none'`, etc.).
-- All user content rendered with `textContent` (no HTML injection);
-  the only `innerHTML` use is Sigma's own static clipart markup.
+- Saved names use `textContent`; SVG library markup is trusted static content.
+  Imported raster nodes use embedded PNG/JPEG/WebP data, with local files
+  normalized to PNG before insertion.
 - Server-side validation everywhere: sizes, types, ownership checks on
   every project route, JSON body limits, no stack traces leaked.
 
 ## Storage
 
-A simple JSON file store at `sigma/data/db.json` (created on first write).
-Swap `server/store.js` for a real database if you outgrow it.
+The shared Toolkit server owns persistence in `%APPDATA%/Toolkit/data/db.json`
+on Windows, shared with the desktop app.
+Sigma's browser code uses `/api/projects`; there is no separate Sigma server.
+
+## Regression checks
+
+From `sigma`, run `npm test` (or `node --test tests/regression.test.js`).
+Tests use synthetic documents, fake canvas/image objects and mocked requests.
+They neither start Toolkit nor read or write its database.
+
+See [AUDIT.md](AUDIT.md) for review findings and verification limits.

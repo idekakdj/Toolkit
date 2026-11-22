@@ -1,5 +1,5 @@
 // Export: build a standalone SVG from the document, rasterize to PNG/JPEG.
-import { state, getSelectedNodes, selectionBBox, nodeAABB } from './state.js';
+import { state, selectionBBox } from './state.js';
 import { polygonPoints, pathD, textLines } from './render.js';
 import { getClipart } from './clipart.js';
 
@@ -56,6 +56,10 @@ function nodeSVG(n) {
     const tint = art.tintable ? ` color="${esc(n.tint || '#c96f2e')}"` : '';
     return `<g${op}${rot}><g transform="translate(${n.x} ${n.y}) scale(${n.w / 100} ${n.h / 100})"${tint}>${art.markup}</g></g>`;
   }
+  if (n.type === 'image') {
+    const escapedSrc = esc(n.src || '');
+    return `<image href="${escapedSrc}" x="${n.x}" y="${n.y}" width="${n.w}" height="${n.h}" preserveAspectRatio="none"${op}${rot}/>`;
+  }
   return '';
 }
 
@@ -64,7 +68,8 @@ export function buildSVG(scope) {
   const ab = state.doc.artboard;
   let view, includeBg, nodes;
   if (scope === 'selection' && state.selection.length) {
-    const sel = getSelectedNodes();
+    const ids = new Set(state.selection);
+    const sel = state.doc.nodes.filter(n => ids.has(n.id));
     let b = selectionBBox();
     // Pad for strokes.
     const pad = Math.max(2, ...sel.map(n => (n.strokeWidth || 0)));
@@ -75,11 +80,8 @@ export function buildSVG(scope) {
   } else {
     view = { x: 0, y: 0, w: ab.w, h: ab.h };
     includeBg = true;
-    // Only nodes that intersect the artboard.
-    nodes = state.doc.nodes.filter(n => {
-      const b = nodeAABB(n);
-      return b.x < ab.w && b.x + b.w > 0 && b.y < ab.h && b.y + b.h > 0;
-    });
+    // The SVG viewport clips all geometry, including strokes crossing its edges.
+    nodes = state.doc.nodes;
   }
   const body = nodes.map(nodeSVG).join('\n  ');
   const bg = includeBg
@@ -103,11 +105,17 @@ export async function rasterize(scope, scale, format, quality = 0.92) {
   const dims = svgString.match(/width="([\d.]+)" height="([\d.]+)"/);
   const w = Math.max(1, Math.round(parseFloat(dims[1]) * scale));
   const h = Math.max(1, Math.round(parseFloat(dims[2]) * scale));
+  if (!Number.isFinite(w) || !Number.isFinite(h) || w > 16384 || h > 16384 || w * h > 64 * 1024 * 1024) {
+    throw new Error('Export is too large. Choose a smaller scale or artboard.');
+  }
   const img = await svgToImage(svgString);
   const canvas = document.createElement('canvas');
   canvas.width = w; canvas.height = h;
   const ctx = canvas.getContext('2d');
+  if (!ctx) throw new Error('Canvas is unavailable');
   if (format === 'image/jpeg') {
+    ctx.fillStyle = '#ffffff';
+    ctx.fillRect(0, 0, w, h);
     ctx.fillStyle = state.doc.artboard.bg || '#ffffff';
     ctx.fillRect(0, 0, w, h);
   }
@@ -147,7 +155,7 @@ export async function exportFile({ format, scale, scope }) {
 export async function makeThumbnail() {
   try {
     const ab = state.doc.artboard;
-    const scale = Math.min(1, 280 / Math.max(1, ab.w));
+    const scale = Math.min(1, 280 / Math.max(1, ab.w, ab.h));
     const blob = await rasterize('artboard', scale, 'image/jpeg', 0.7);
     if (!blob || blob.size > 200 * 1024) return null;
     return await new Promise((resolve) => {

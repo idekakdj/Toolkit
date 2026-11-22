@@ -1,0 +1,104 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Account — Toolkit</title>
+  <link rel="icon" href="/img/toolkit.svg" type="image/svg+xml">
+  <link rel="stylesheet" href="/css/toolkit.css">
+</head>
+<body>
+  <div class="scuffs" aria-hidden="true"></div>
+  <div class="page">
+    <nav class="nav">
+      <a class="brand" href="/">
+        <svg class="logo" viewBox="0 0 40 40" xmlns="http://www.w3.org/2000/svg" aria-hidden="true">
+          <rect x="2" y="2" width="36" height="36" rx="6" fill="#ececec"/>
+          <path d="M11 13h18M20 13v15" stroke="#0e0e0e" stroke-width="4" stroke-linecap="round"/>
+        </svg>
+        TOOLKIT
+      </a>
+      <div class="nav-links">
+        <a href="/">Home</a>
+        <a href="/privacy">Privacy</a>
+        <a class="btn btn-ghost btn-sm" id="signout-btn" href="#">Sign out</a>
+      </div>
+    </nav>
+
+    <main class="account-wrap">
+      <h1>Your account</h1>
+      <div class="form-error" id="acct-error" role="alert"></div>
+      <div class="form-notice" id="acct-notice" role="status"></div>
+
+      <section class="panel" aria-labelledby="h-profile">
+        <h2 id="h-profile">Profile</h2>
+        <dl class="facts">
+          <dt>Email</dt><dd id="acct-email"></dd>
+          <dt>Member since</dt><dd id="acct-created"></dd>
+          <dt>Last sign-in</dt><dd id="acct-last"></dd>
+          <dt>Privacy notice accepted</dt><dd id="acct-consent"></dd>
+        </dl>
+        <form id="name-form" class="inline-form">
+          <div class="field">
+            <label for="acct-name">Name</label>
+            <input id="acct-name" type="text" maxlength="60" autocomplete="name" required>
+          </div>
+          <button class="btn btn-sm" type="submit">Save name</button>
+        </form>
+      </section>
+
+      <section class="panel" aria-labelledby="h-password">
+        <h2 id="h-password">Change password</h2>
+        <p class="muted">Changing your password signs you out everywhere else.</p>
+        <form id="password-form">
+          <div class="field">
+            <label for="pw-current">Current password</label>
+            <input id="pw-current" type="password" autocomplete="current-password" maxlength="128" required>
+          </div>
+          <div class="field">
+            <label for="pw-new">New password</label>
+            <input id="pw-new" type="password" autocomplete="new-password" maxlength="128" required>
+            <p class="hint">At least 12 characters. Longer is better; avoid common words, your name and your email.</p>
+          </div>
+          <button class="btn btn-sm" type="submit">Change password</button>
+        </form>
+      </section>
+
+      <section class="panel" aria-labelledby="h-sessions">
+        <h2 id="h-sessions">Where you are signed in</h2>
+        <p class="muted">If you do not recognise a session, end it and change your password.</p>
+        <ul id="sessions-list" class="session-list"></ul>
+        <button class="btn btn-ghost btn-sm" id="revoke-others-btn" type="button">Sign out everywhere else</button>
+      </section>
+
+      <section class="panel" aria-labelledby="h-data">
+        <h2 id="h-data">Your data</h2>
+        <p class="muted" id="storage-line"></p>
+        <p>Download a copy of everything held about you: your profile, security activity and every project, painting and image.</p>
+        <button class="btn btn-sm" id="export-btn" type="button">Download my data</button>
+      </section>
+
+      <section class="panel danger-zone" aria-labelledby="h-delete">
+        <h2 id="h-delete">Delete account</h2>
+        <p>This permanently erases your account, all projects, paintings and images, and every session. It cannot be undone. Download your data first if you want a copy.</p>
+        <form id="delete-form">
+          <div class="field">
+            <label for="del-password">Current password</label>
+            <input id="del-password" type="password" autocomplete="current-password" maxlength="128" required>
+          </div>
+          <div class="field">
+            <label for="del-confirm">Type DELETE to confirm</label>
+            <input id="del-confirm" type="text" autocomplete="off" maxlength="10" required>
+          </div>
+          <button class="btn btn-danger btn-sm" type="submit">Delete my account</button>
+        </form>
+      </section>
+    </main>
+
+    <footer>
+      <div>© 2026 Toolkit. <a href="/privacy">Privacy notice</a></div>
+    </footer>
+  </div>
+  <script type="module" src="/js/account.js"></script>
+</body>
+</html>

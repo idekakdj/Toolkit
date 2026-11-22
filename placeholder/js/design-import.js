@@ -32,6 +32,19 @@
     return res.json();
   }
 
+  function rasterSource(value) {
+    if (!/^data:image\/(?:png|jpeg|webp);base64,[A-Za-z0-9+/]+={0,2}$/.test(value || '')) {
+      throw new Error('Imported images must contain embedded PNG, JPEG or WebP data.');
+    }
+    return value;
+  }
+
+  function validateCanvas(canvas) {
+    if (!canvas || !['w', 'h'].every(key => Number.isInteger(canvas[key]) && canvas[key] >= 1 && canvas[key] <= 8000)) {
+      throw new Error('Design dimensions must be integers from 1 to 8000.');
+    }
+  }
+
   function safeName(name) {
     return (String(name || 'design').replace(/[^\w\- ]+/g, '').trim()
       .replace(/\s+/g, '-')) || 'design';
@@ -168,7 +181,7 @@
     if (n.type === 'clipart') {
       if (!clipart || !clipart.getClipart) return '';
       const art = clipart.getClipart(n.clipartId);
-      if (!art) return '';
+      if (!art) throw new Error('Unknown Sigma clipart: ' + n.clipartId);
       const tint = art.tintable ? ' color="' + esc(n.tint || '#c96f2e') + '"' : '';
       return '<g' + op + rot + '><g transform="translate(' + n.x + ' ' + n.y + ') scale('
         + (n.w / 100) + ' ' + (n.h / 100) + ')"' + tint + '>' + art.markup + '</g></g>';
@@ -178,12 +191,13 @@
 
   async function sigmaToSVG(docObj) {
     const ab = docObj.artboard || { w: 1280, h: 800, bg: '#ffffff' };
+    validateCanvas(ab);
     const nodes = Array.isArray(docObj.nodes) ? docObj.nodes : [];
     const visible = nodes.filter(n => n.visible !== false);
 
     let clipart = null;
     if (visible.some(n => n.type === 'clipart')) {
-      try { clipart = await import('/sigma/js/editor/clipart.js'); } catch (e) { clipart = null; }
+      try { clipart = await import('/sigma/js/editor/clipart.js'); } catch (e) { throw new Error('Sigma clipart library could not load. Please retry from Toolkit.'); }
     }
     const body = visible.map(n => sigmaNodeSVG(n, clipart)).join('');
     const w = ab.w, h = ab.h;
@@ -220,11 +234,12 @@
 
   async function pigmentToSVG(docObj) {
     const c = docObj.canvas || { w: 1600, h: 1000, bg: '#ffffff' };
+    validateCanvas(c);
     const items = Array.isArray(docObj.items) ? docObj.items : [];
 
     let lib = null;
     if (items.some(i => i.kind === 'art')) {
-      try { lib = await import('/pigment/js/library.js'); } catch (e) { lib = null; }
+      try { lib = await import('/pigment/js/library.js'); } catch (e) { throw new Error('Pigment artwork library could not load. Please retry from Toolkit.'); }
     }
 
     const defsMap = new Map();
@@ -232,6 +247,7 @@
     const parts = [];
 
     for (const item of items) {
+    const outputStart = parts.length;
       if (item.kind === 'stroke') {
         parts.push('<path fill="none" stroke="' + esc(resolve(item.color))
           + '" stroke-width="' + (item.size || 4)
@@ -239,17 +255,29 @@
       } else if (item.kind === 'region') {
         parts.push('<path fill="' + esc(resolve(item.fill))
           + '" stroke="' + esc(item.stroke || '#1e1e1e')
-          + '" stroke-width="' + (item.strokeWidth || 2)
+          + '" stroke-width="' + (item.strokeWidth ?? 2)
           + '" stroke-linejoin="round" d="' + pathD(item.points, true) + '"/>');
+      } else if (item.kind === 'image') {
+        rasterSource(item.src);
+        parts.push('<image href="' + esc(item.src) + '" x="' + item.x + '" y="' + item.y + '" width="' + item.w + '" height="' + item.h + '" preserveAspectRatio="none"/>');
       } else if (item.kind === 'art') {
         const piece = lib && lib.getColoring ? lib.getColoring(item.artId) : null;
-        if (!piece) continue;
+        if (!piece) throw new Error('Unknown Pigment artwork: ' + item.artId);
         const sx = item.w / 200, sy = item.h / 200;
         const inner = applyArtFills(piece.markup, item.fills || {}, resolve);
         parts.push('<g transform="translate(' + item.x + ' ' + item.y + ') scale('
           + sx + ' ' + sy + ')">' + inner + '</g>');
       }
+    
+    // Preserve per-item appearance when passing Pigment artwork between apps.
+    if (parts.length > outputStart) {
+      const opacity = Math.min(1, Math.max(0, Number(item.opacity ?? 1)));
+      const rotation = item.kind === 'image' && Number.isFinite(item.rotation)
+        ? ' transform="rotate(' + item.rotation + ' ' + (Number(item.x) + Number(item.w) / 2) + ' ' + (Number(item.y) + Number(item.h) / 2) + ')"' : '';
+      const index = parts.length - 1;
+      parts[index] = '<g opacity="' + (Number.isFinite(opacity) ? opacity : 1) + '"' + rotation + '>' + parts[index] + '</g>';
     }
+  }
 
     const w = c.w, h = c.h;
     return '<svg xmlns="http://www.w3.org/2000/svg" width="' + w + '" height="' + h
@@ -260,23 +288,67 @@
   }
 
   /* ============================================================
+     IMAGEVENDOR  (canvas + layers, each a PNG data URL)  ->  SVG
+     Composites layers bottom-to-top using SVG <image> elements.
+     ============================================================ */
+
+  function imageVendorToSVG(docObj) {
+    const c = docObj.canvas || { w: 1280, h: 800, bg: '#ffffff' };
+    validateCanvas(c);
+    const layers = Array.isArray(docObj.layers) ? docObj.layers : [];
+    const ids = new Set();
+    for (const layer of layers) {
+      if (typeof layer.id !== 'string' || !layer.id || ids.has(layer.id)) throw new Error('Image layer IDs must be nonempty and unique.');
+      ids.add(layer.id);
+      if (layer.data) rasterSource(layer.data);
+    }
+    const w = c.w, h = c.h;
+    let out = '<svg xmlns="http://www.w3.org/2000/svg"'
+      + ' xmlns:xlink="http://www.w3.org/1999/xlink"'
+      + ' width="' + w + '" height="' + h
+      + '" viewBox="0 0 ' + w + ' ' + h + '">';
+    if (c.bg && c.bg !== 'transparent') {
+      out += '<rect width="' + w + '" height="' + h + '" fill="' + esc(c.bg) + '"/>';
+    }
+    for (const layer of layers) {
+      if (layer.visible === false || !layer.data) continue;
+      const dataUrl = esc(layer.data || '');
+      const opacity = (layer.opacity != null && layer.opacity < 1)
+        ? ' opacity="' + layer.opacity + '"' : '';
+      out += '<image href="' + dataUrl + '" xlink:href="' + dataUrl + '"'
+        + ' x="0" y="0" width="' + w + '" height="' + h + '"'
+        + ' preserveAspectRatio="none"' + opacity + '/>';
+    }
+    out += '</svg>';
+    return out;
+  }
+
+  /* ============================================================
      PICKER OVERLAY
      ============================================================ */
 
   const APPS = {
     sigma: {
       label: 'Sigma', listPath: '/api/projects', listKey: 'projects',
-      itemPath: (id) => '/api/projects/' + id, docOf: (full) => full.project.document,
+      itemPath: (id) => '/api/projects/' + encodeURIComponent(id), docOf: (full) => full.project.document,
       serialize: sigmaToSVG, empty: 'No Sigma projects yet — design one first.',
     },
     pigment: {
       label: 'Pigment', listPath: '/api/paintings', listKey: 'paintings',
-      itemPath: (id) => '/api/paintings/' + id, docOf: (full) => full.painting.document,
+      itemPath: (id) => '/api/paintings/' + encodeURIComponent(id), docOf: (full) => full.painting.document,
       serialize: pigmentToSVG, empty: 'No Pigment paintings yet — paint one first.',
+    },
+    imagevendor: {
+      label: 'ImageVendor', listPath: '/api/images', listKey: 'images',
+      itemPath: (id) => '/api/images/' + encodeURIComponent(id), docOf: (full) => full.image.document,
+      serialize: imageVendorToSVG, empty: 'No ImageVendor images yet — create one first.',
     },
   };
 
   let overlay = null;
+  let requestRevision = 0;
+  let returnFocus = null;
+  let inertElements = [];
 
   function buildOverlay() {
     overlay = document.createElement('div');
@@ -286,17 +358,33 @@
       + '<div class="di-head"><h3 id="diTitle">Import a design</h3>'
       + '<button class="di-close" type="button" aria-label="Close">✕</button></div>'
       + '<div class="di-body"></div></div>';
+    returnFocus = document.activeElement;
+    inertElements = Array.from(document.body.children).filter(el => !el.inert);
+    inertElements.forEach(el => { el.inert = true; });
     document.body.appendChild(overlay);
+    overlay.querySelector('.di-close').focus();
     overlay.addEventListener('click', (e) => { if (e.target === overlay) closeOverlay(); });
     overlay.querySelector('.di-close').addEventListener('click', closeOverlay);
     document.addEventListener('keydown', onEsc);
   }
 
-  function onEsc(e) { if (e.key === 'Escape') closeOverlay(); }
+  function onEsc(e) {
+    if (e.key === 'Escape') { e.preventDefault(); closeOverlay(); }
+    if (e.key === 'Tab' && overlay) {
+      const buttons = Array.from(overlay.querySelectorAll('button:not(:disabled), a[href]'));
+      const first = buttons[0], last = buttons[buttons.length - 1];
+      if (e.shiftKey && document.activeElement === first) { e.preventDefault(); last.focus(); }
+      else if (!e.shiftKey && document.activeElement === last) { e.preventDefault(); first.focus(); }
+    }
+  }
 
   function closeOverlay() {
     if (!overlay) return;
+    requestRevision++;
     overlay.remove();
+    inertElements.forEach(el => { el.inert = false; });
+    inertElements = [];
+    if (returnFocus && returnFocus.isConnected) returnFocus.focus();
     overlay = null;
     document.removeEventListener('keydown', onEsc);
   }
@@ -307,6 +395,7 @@
 
   async function openPicker(appKey) {
     const app = APPS[appKey];
+    const token = ++requestRevision;
     if (!overlay) buildOverlay();
     overlay.querySelector('#diTitle').textContent = 'Import from ' + app.label;
     setBody('<div class="di-loading"><span class="di-spin"></span> Loading your ' + app.label + ' designs…</div>');
@@ -314,8 +403,11 @@
     let list;
     try {
       const data = await apiGet(app.listPath);
+      if (token !== requestRevision || !overlay) return;
       list = data[app.listKey] || [];
+      if (!Array.isArray(list)) throw new Error('Invalid design list returned by Toolkit.');
     } catch (err) {
+      if (token !== requestRevision || !overlay) return;
       setBody('<p class="di-msg">' + esc(err.message) + '</p>');
       return;
     }
@@ -346,18 +438,24 @@
 
   async function chooseItem(appKey, id, name) {
     const app = APPS[appKey];
+    const token = ++requestRevision;
+    overlay.querySelector('.di-close').focus();
     setBody('<div class="di-loading"><span class="di-spin"></span> Preparing “'
       + esc(name) + '” for conversion…</div>');
     try {
       const full = await apiGet(app.itemPath(id));
+      if (token !== requestRevision || !overlay) return;
       const docObj = app.docOf(full);
+      if (!docObj || typeof docObj !== 'object') throw new Error('The saved design has no document.');
       const svg = await app.serialize(docObj);
+      if (token !== requestRevision || !overlay) return;
       const file = new File([svg], safeName(name) + '.svg', { type: 'image/svg+xml' });
       closeOverlay();
       if (window.PlaceholderConvert && window.PlaceholderConvert.acceptFile) {
         window.PlaceholderConvert.acceptFile(file);
       }
     } catch (err) {
+      if (token !== requestRevision || !overlay) return;
       setBody('<p class="di-msg">Could not import this design: ' + esc(err.message) + '</p>'
         + '<button type="button" class="btn btn-ghost btn-sm di-retry">Back</button>');
       const retry = overlay && overlay.querySelector('.di-retry');
@@ -371,6 +469,7 @@
     const wrap = document.getElementById('dzImport');
     const sigmaBtn = document.getElementById('importSigmaBtn');
     const pigmentBtn = document.getElementById('importPigmentBtn');
+    const imageVendorBtn = document.getElementById('importImageVendorBtn');
     if (!sigmaBtn || !pigmentBtn) return;
 
     // The buttons live inside the click-to-browse dropzone — stop their
@@ -381,6 +480,9 @@
     }
     sigmaBtn.addEventListener('click', (e) => { e.stopPropagation(); openPicker('sigma'); });
     pigmentBtn.addEventListener('click', (e) => { e.stopPropagation(); openPicker('pigment'); });
+    if (imageVendorBtn) {
+      imageVendorBtn.addEventListener('click', (e) => { e.stopPropagation(); openPicker('imagevendor'); });
+    }
   }
 
   if (document.readyState === 'loading') {

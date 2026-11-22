@@ -105,6 +105,7 @@ export function defaultName(type) {
   const labels = {
     rect: 'Rectangle', ellipse: 'Ellipse', path: 'Path', line: 'Line',
     polygon: 'Polygon', star: 'Star', text: 'Text', clipart: 'Clipart',
+    image: 'Image',
   };
   nameCounters[type] = (nameCounters[type] || 0) + 1;
   return `${labels[type] || 'Layer'} ${nameCounters[type]}`;
@@ -159,13 +160,38 @@ export function selectionBBox() {
 
 // ---------- operations ----------
 export function deleteSelected() {
-  if (!state.selection.length) return;
+  const dead = new Set(getSelectedNodes().filter(n => !n.locked).map(n => n.id));
+  if (!dead.size) return;
   pushUndo();
-  const dead = new Set(state.selection);
   state.doc.nodes = state.doc.nodes.filter(n => !dead.has(n.id));
-  state.selection = [];
+  state.selection = state.selection.filter(id => !dead.has(id));
   markDirty();
   events.emit('selection');
+}
+
+// "Above" refers to the reversed layer list, so it is later in the z stack.
+export function moveLayer(id, targetId, above) {
+  const nodes = state.doc.nodes;
+  const from = nodes.findIndex(n => n.id === id);
+  if (from < 0 || id === targetId || !getNode(targetId)) return;
+  pushUndo();
+  const [moved] = nodes.splice(from, 1);
+  const to = nodes.findIndex(n => n.id === targetId) + (above ? 1 : 0);
+  nodes.splice(to, 0, moved);
+  markDirty();
+}
+
+export function commitNodeText(id, text, isNew = false) {
+  const node = getNode(id);
+  if (!node || (text === node.text && text.trim())) return false;
+  if (!isNew) pushUndo();
+  if (!text.trim()) {
+    state.doc.nodes = state.doc.nodes.filter(n => n.id !== id);
+    state.selection = state.selection.filter(selected => selected !== id);
+    events.emit('selection');
+  } else node.text = text;
+  markDirty();
+  return true;
 }
 
 function cloneNodes(nodes, offset = 16) {
@@ -254,6 +280,36 @@ export function reorder(action) {
 }
 
 // Align selected nodes. With one node, align to the artboard.
+export function getMovableSelectedNodes() {
+  return [...new Set(getSelectedNodes())].filter(n => !n.locked && n.visible !== false);
+}
+
+// Equal world-space AABB gaps; ties retain selection order and endpoints stay fixed.
+export function distributeSelected(axis) {
+  if (axis !== 'horizontal' && axis !== 'vertical') return false;
+  const key = axis === 'horizontal' ? 'x' : 'y';
+  const size = axis === 'horizontal' ? 'w' : 'h';
+  const items = getMovableSelectedNodes().map((node, order) => ({ node, order, box: nodeAABB(node) }));
+  if (items.length < 3) return false;
+  items.sort((a, b) => a.box[key] - b.box[key] || a.order - b.order);
+  const first = items[0], last = items[items.length - 1];
+  const gap = (last.box[key] - first.box[key] -
+    items.slice(0, -1).reduce((sum, item) => sum + item.box[size], 0)) / (items.length - 1);
+  let edge = first.box[key] + first.box[size];
+  const moves = [];
+  for (const item of items.slice(1, -1)) {
+    const target = edge + gap;
+    const delta = target - item.box[key];
+    if (Math.abs(delta) > 1e-9) moves.push({ node: item.node, delta });
+    edge = target + item.box[size];
+  }
+  if (!moves.length) return false;
+  pushUndo();
+  for (const { node, delta } of moves) node[key] += delta;
+  markDirty();
+  return true;
+}
+
 export function alignSelected(mode) {
   const nodes = getSelectedNodes().filter(n => !n.locked);
   if (!nodes.length) return;

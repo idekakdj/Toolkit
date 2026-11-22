@@ -1,0 +1,33 @@
+{
+  "name": "toolkit",
+  "version": "1.2.0",
+  "description": "Toolkit: Sigma, Pigment, ImageVendor and Placeholder with shared authentication.",
+  "author": "Toolkit",
+  "main": "server/index.js",
+  "type": "commonjs",
+  "scripts": {
+    "start": "node server/start.cjs",
+    "start:hosted": "node server/hosted.cjs",
+    "dev": "node server/start.cjs",
+    "test": "node test/run-all.cjs",
+    "test:browser": "node test/browser-smoke.cjs",
+    "desktop": "electron desktop/main.cjs",
+    "build:desktop": "electron-builder --config desktop/builder.cjs --win nsis --x64 --publish never",
+    "test:desktop": "node test/desktop-smoke.cjs"
+  },
+  "dependencies": {
+    "bcryptjs": "^2.4.3",
+    "express": "^4.19.2",
+    "express-rate-limit": "^7.4.0",
+    "helmet": "^7.1.0",
+    "nodemailer": "^10.3.1"
+  },
+  "devDependencies": {
+    "electron": "44.10.0",
+    "electron-builder": "26.15.3"
+  },
+  "overrides": {
+    "global-agent": "4.1.3",
+    "minimatch@>=7.0.0 <11.0.1": "11.0.9"
+  }
+}

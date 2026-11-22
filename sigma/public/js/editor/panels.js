@@ -1,14 +1,14 @@
 // Layers panel and properties panel.
 import {
   state, events, getNode, getSelectedNodes, setSelection, pushUndo, markDirty,
-  alignSelected, reorder, groupSelection, ungroupSelection,
+  alignSelected, distributeSelected, getMovableSelectedNodes, reorder, groupSelection, ungroupSelection, moveLayer,
 } from './state.js';
 
 const $ = (id) => document.getElementById(id);
 
 const TYPE_ICONS = {
   rect: '▭', ellipse: '◯', polygon: '⬠', star: '★',
-  path: '〰', line: '╱', text: 'T', clipart: '✦',
+  path: '〰', line: '╱', text: 'T', clipart: '✦', image: '⬜',
 };
 
 // ---------- layers ----------
@@ -50,10 +50,20 @@ function layerItem(n) {
   name.className = 'l-name' + (n.visible ? '' : ' dim');
   name.textContent = n.name;
   name.title = n.name;
+  name.tabIndex = 0;
+  name.setAttribute('role', 'button');
+  name.setAttribute('aria-label', 'Select ' + n.name);
+  name.addEventListener('keydown', e => {
+    if (e.key === 'Enter' || e.key === ' ') {
+      e.preventDefault(); e.stopPropagation(); setSelection([n.id]);
+      document.querySelector('#layers-list .selected .l-name')?.focus();
+    }
+  });
 
   const eye = document.createElement('button');
   eye.className = 'l-btn' + (n.visible ? '' : ' on');
   eye.title = n.visible ? 'Hide' : 'Show';
+  eye.setAttribute('aria-label', eye.title + ' ' + n.name);
   eye.textContent = n.visible ? '👁' : '–';
   eye.addEventListener('click', (e) => {
     e.stopPropagation();
@@ -66,6 +76,7 @@ function layerItem(n) {
   const lock = document.createElement('button');
   lock.className = 'l-btn' + (n.locked ? ' on' : '');
   lock.title = n.locked ? 'Unlock' : 'Lock';
+  lock.setAttribute('aria-label', lock.title + ' ' + n.name);
   lock.textContent = n.locked ? '🔒' : '🔓';
   lock.addEventListener('click', (e) => {
     e.stopPropagation();
@@ -136,16 +147,7 @@ function layerItem(n) {
     const above = item.classList.contains('drop-above');
     item.classList.remove('drop-above', 'drop-below');
     if (!dragId || dragId === n.id) return;
-    const nodes = state.doc.nodes;
-    const from = nodes.findIndex(x => x.id === dragId);
-    if (from === -1) return;
-    const [moved] = nodes.splice(from, 1);
-    let to = nodes.findIndex(x => x.id === n.id);
-    // List is reversed: "above" in the list = after in the array.
-    if (above) to += 1;
-    pushUndo();
-    nodes.splice(to, 0, moved);
-    markDirty();
+    moveLayer(dragId, n.id, above);
     dragId = null;
   });
   item.addEventListener('dragend', () => { dragId = null; });
@@ -179,8 +181,8 @@ function num(v, fallback = 0) {
 
 export function initProps() {
   // Artboard
-  bindLive($('ab-w'), v => { state.doc.artboard.w = Math.min(8000, Math.max(16, num(v, 1280))); });
-  bindLive($('ab-h'), v => { state.doc.artboard.h = Math.min(8000, Math.max(16, num(v, 800))); });
+  bindLive($('ab-w'), v => { state.doc.artboard.w = Math.min(8000, Math.max(16, Math.round(num(v, 1280)))); });
+  bindLive($('ab-h'), v => { state.doc.artboard.h = Math.min(8000, Math.max(16, Math.round(num(v, 800)))); });
   bindLive($('ab-bg'), v => { state.doc.artboard.bg = v; });
   $('ab-preset').addEventListener('change', (e) => {
     const v = e.target.value;
@@ -269,6 +271,9 @@ export function initProps() {
   bindLive($('nd-tint'), v => eachSelected(n => { if (n.type === 'clipart') n.tint = v; }));
 
   // Align / arrange / group
+  for (const btn of document.querySelectorAll('[data-distribute]')) {
+    btn.addEventListener('click', () => distributeSelected(btn.dataset.distribute));
+  }
   for (const btn of document.querySelectorAll('[data-align]')) {
     btn.addEventListener('click', () => alignSelected(btn.dataset.align));
   }
@@ -304,6 +309,9 @@ function setVal(id, value) {
 
 export function refreshProps() {
   const nodes = getSelectedNodes();
+  for (const btn of document.querySelectorAll('[data-distribute]')) {
+    btn.disabled = getMovableSelectedNodes().length < 3;
+  }
   const show = (id, on) => { $(id).hidden = !on; };
 
   if (!nodes.length) {
@@ -343,7 +351,7 @@ export function refreshProps() {
     if (types.has('star')) setVal('nd-inner', Math.round((first.innerRatio ?? 0.45) * 100));
   }
 
-  const fillable = nodes.some(n => 'fill' in n && n.type !== 'line');
+  const fillable = nodes.some(n => 'fill' in n && n.type !== 'line' && n.type !== 'image');
   show('props-fill', fillable);
   if (fillable) {
     const f = first.fill && first.fill !== 'none' ? first.fill : '#d9d9d9';
@@ -351,7 +359,7 @@ export function refreshProps() {
     $('nd-fill-none').checked = !first.fill || first.fill === 'none';
   }
 
-  const strokable = !types.has('clipart');
+  const strokable = !types.has('clipart') && !types.has('image');
   show('props-stroke', strokable);
   if (strokable) {
     const s = first.stroke && first.stroke !== 'none' ? first.stroke : '#3b2c20';

@@ -1,0 +1,22 @@
+module.exports = async function shapeGestures(page) {
+  const assert = require('node:assert/strict');
+  const doc = () => page.evaluate(async () => structuredClone((await import('/pigment/js/app.js')).getDoc()));
+  const initial = await doc();
+  const b = await page.locator('#paint-svg').boundingBox();
+  const x=b.x+b.width*.2, y=b.y+b.height*.2;
+  const drag=async()=>{await page.mouse.move(x,y);await page.mouse.down();await page.mouse.move(x+b.width*.15,y+b.height*.1);};
+  await page.locator('[data-tool="rectangle"]').click();await drag();
+  assert.deepEqual(await doc(),initial);
+  assert.equal(await page.locator('[data-shape-preview]').count(),1);
+  await page.mouse.up();const rectangle=await doc();
+  assert.equal(rectangle.items.length,initial.items.length+1);assert.equal(rectangle.items.at(-1).points.length,4);
+  await page.locator('#undo-btn').click();assert.deepEqual(await doc(),initial);
+  await page.locator('#redo-btn').click();assert.deepEqual(await doc(),rectangle);
+  await page.locator('[data-tool="ellipse"]').click();await drag();await page.keyboard.press('Escape');await page.mouse.up();
+  assert.deepEqual(await doc(),rectangle);assert.equal(await page.locator('[data-shape-preview]').count(),0);
+  await page.mouse.move(x,y);await page.mouse.down();await page.mouse.move(x+1,y+1);await page.mouse.up();assert.deepEqual(await doc(),rectangle);
+  await page.keyboard.down('Shift');await drag();await page.mouse.up();await page.keyboard.up('Shift');
+  const ellipse=(await doc()).items.at(-1);assert.equal(ellipse.points.length,48);
+  const extent=axis=>Math.max(...ellipse.points.map(p=>p[axis]))-Math.min(...ellipse.points.map(p=>p[axis]));assert.ok(Math.abs(extent(0)-extent(1))<1e-8);
+  await page.locator('#undo-btn').click();assert.deepEqual(await doc(),rectangle);
+};

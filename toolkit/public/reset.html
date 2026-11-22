@@ -1,0 +1,42 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <meta name="referrer" content="no-referrer">
+  <title>Reset password — Toolkit</title>
+  <link rel="icon" href="/img/toolkit.svg" type="image/svg+xml">
+  <link rel="stylesheet" href="/css/toolkit.css">
+</head>
+<body>
+  <div class="scuffs" aria-hidden="true"></div>
+  <div class="page">
+    <nav class="nav">
+      <a class="brand" href="/">TOOLKIT</a>
+      <div class="nav-links"><a href="/auth">Sign in</a></div>
+    </nav>
+    <main class="auth-wrap">
+      <div class="auth-card">
+        <span class="tape" aria-hidden="true"></span>
+        <h1 id="title">Choose a new password</h1>
+        <p class="sub" id="message">You will be signed out everywhere once it is changed.</p>
+        <div class="form-error" id="error" role="alert"></div>
+        <form id="reset-form" novalidate>
+          <div class="field">
+            <label for="password">New password</label>
+            <input id="password" type="password" autocomplete="new-password" maxlength="128" required>
+            <p class="hint">At least 12 characters. Longer is better; avoid common words, your name and your email.</p>
+          </div>
+          <div class="field">
+            <label for="confirm">Repeat new password</label>
+            <input id="confirm" type="password" autocomplete="new-password" maxlength="128" required>
+          </div>
+          <button class="btn" id="submit-btn" type="submit" style="width:100%">Change password</button>
+        </form>
+        <p class="auth-links" id="next" hidden><a class="btn" href="/auth">Sign in</a></p>
+      </div>
+    </main>
+  </div>
+  <script type="module" src="/js/token-pages.js" data-mode="reset"></script>
+</body>
+</html>

@@ -179,6 +179,18 @@ function renderNode(n) {
     e.appendChild(el('rect', {
       x: n.x, y: n.y, width: n.w, height: n.h, fill: 'transparent',
     }));
+  } else if (n.type === 'image') {
+    const XLINK = 'http://www.w3.org/1999/xlink';
+    e = document.createElementNS(SVG_NS, 'image');
+    e.setAttribute('data-node-id', n.id);
+    e.setAttribute('opacity', n.opacity ?? 1);
+    e.setAttributeNS(XLINK, 'href', n.src);
+    e.setAttribute('href', n.src);
+    e.setAttribute('x', n.x);
+    e.setAttribute('y', n.y);
+    e.setAttribute('width', Math.max(0.01, n.w));
+    e.setAttribute('height', Math.max(0.01, n.h));
+    e.setAttribute('preserveAspectRatio', 'none');
   }
 
   if (!e) return null;
@@ -210,7 +222,7 @@ function measureTextNodes() {
   // Re-render anchored tspans once sizes settle (center/right alignment).
   if (changed) {
     for (const n of state.doc.nodes) {
-      if (n.type !== 'text' || !n.visible || !n.align || n.align === 'left') continue;
+      if (n.type !== 'text' || !n.visible) continue;
       const old = nodesGroup.querySelector(`text[data-node-id="${n.id}"]`);
       if (old) old.replaceWith(renderNode(n));
     }

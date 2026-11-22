@@ -1,9 +1,12 @@
+import { appendImportedItems } from '/pigment/js/import-limit.js';
+import { assertRasterSource, assertRasterDimensions, compositeRasterDocument } from '/pigment/js/raster.js';
 // Pigment – Sigma <-> Pigment interchange
 // Imported by app.js event handlers (call-time only, not at module top level).
 
 import { getColoring } from '/pigment/js/library.js';
 import {
   api,
+  closeModal,
   redirectIfSignedOut,
   pushHistory,
   reRenderAndSave,
@@ -52,24 +55,91 @@ function applyRotation(points, node) {
 // ─── SVG RENDERING HELPERS ───────────────────────────────────────────────────
 
 function svgImageToCanvas(svgStr, w, h) {
+  assertRasterDimensions(w, h);
+  if (w * h > 16000000) throw new Error('Raster exceeds the 16 million pixel limit');
   return new Promise((resolve, reject) => {
     const blob = new Blob([svgStr], { type: 'image/svg+xml' });
     const url = URL.createObjectURL(blob);
     const img = new Image();
     img.onload = () => {
       URL.revokeObjectURL(url);
-      const cv = document.createElement('canvas');
-      cv.width = w;
-      cv.height = h;
-      const ctx = cv.getContext('2d');
-      ctx.fillStyle = '#ffffff';
-      ctx.fillRect(0, 0, w, h);
-      ctx.drawImage(img, 0, 0, w, h);
-      resolve(cv);
+      try {
+        const cv = document.createElement('canvas');
+        cv.width = w;
+        cv.height = h;
+        const ctx = cv.getContext('2d');
+        if (!ctx) throw new Error('Canvas unavailable');
+        ctx.drawImage(img, 0, 0, w, h);
+        resolve(cv);
+      } catch (err) { reject(err); }
     };
     img.onerror = (e) => { URL.revokeObjectURL(url); reject(e); };
     img.src = url;
   });
+}
+
+function escapeTextXML(value) {
+  return String(value).replace(/[&<>"']/g, c => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&apos;' }[c]));
+}
+
+// Match sigma/public/js/editor/render.js, without interpreting user markup.
+function validateSigmaText(node) {
+  const text = String(node.text || '');
+  const size = node.fontSize || 24;
+  const weight = node.fontWeight || 400;
+  const family = node.fontFamily || 'Arial';
+  const fill = node.fill || '#1e1e1e';
+  if (![node.x, node.y, node.w, node.h, size, node.rotation ?? 0, node.opacity ?? 1].every(Number.isFinite) ||
+      node.w < 0 || node.h < 0 || node.w > 8000 || node.h > 8000 || size <= 0 || size > 1000 ||
+      (node.opacity ?? 1) < 0 || (node.opacity ?? 1) > 1 ||
+      text.length > 65536 || text.split('\n').length > 1000 ||
+      typeof family !== 'string' || family.length > 256 ||
+      !/^(?:[1-9]00|normal|bold|bolder|lighter)$/.test(String(weight)) ||
+      typeof fill !== 'string' || fill.length > 128 ||
+      !(fill === 'none' || CSS.supports('color', fill)) || /url\s*\(/i.test(fill) ||
+      /[\u0000-\u0008\u000b\u000c\u000e-\u001f\ufffe\uffff]/.test(text + family + fill)) {
+    throw new Error('Invalid or oversized Sigma text');
+  }
+  return { text, size, weight, family, fill };
+}
+
+async function sigmaTextToItem(node, budget) {
+  const { text, size, weight, family, fill } = validateSigmaText(node);
+  const ns = 'http://www.w3.org/2000/svg';
+  const root = document.createElementNS(ns, 'svg');
+  root.style.cssText = 'position:absolute;left:-99999px;top:0;visibility:hidden;overflow:visible';
+  const label = document.createElementNS(ns, 'text');
+  for (const [key, value] of Object.entries({ fill, 'font-family': family, 'font-size': size, 'font-weight': weight })) label.setAttribute(key, value);
+  label.style.whiteSpace = 'pre';
+  const anchor = node.align === 'center' ? 'middle' : node.align === 'right' ? 'end' : 'start';
+  const tx = anchor === 'middle' ? node.w / 2 : anchor === 'end' ? node.w : 0;
+  const spans = text.split('\n').map((line, i) => {
+    const span = document.createElementNS(ns, 'tspan');
+    span.setAttribute('x', tx); span.setAttribute('y', size * .9 + i * size * 1.25);
+    span.setAttribute('text-anchor', anchor); span.textContent = line || ' ';
+    label.appendChild(span);
+    return `<tspan x="${tx}" y="${size * .9 + i * size * 1.25}" text-anchor="${anchor}">${escapeTextXML(line || ' ')}</tspan>`;
+  });
+  root.appendChild(label);
+  document.body.appendChild(root);
+  let bounds;
+  try {
+    if (document.fonts) await document.fonts.ready;
+    bounds = label.getBBox();
+  } finally { root.remove(); }
+  if (![bounds.x, bounds.y, bounds.width, bounds.height].every(Number.isFinite)) throw new Error('Cannot measure Sigma text');
+  // Symmetric padding keeps Pigment's image rotation center at Sigma's box center.
+  const w = Math.max(1, Math.ceil(2 * Math.max(node.w / 2, node.w / 2 - bounds.x, bounds.x + bounds.width - node.w / 2) + 4));
+  const h = Math.max(1, Math.ceil(2 * Math.max(node.h / 2, node.h / 2 - bounds.y, bounds.y + bounds.height - node.h / 2) + 4));
+  assertRasterDimensions(w, h);
+  if (w * h > 4000000 || (budget.pixels += w * h) > 16000000) throw new Error('Sigma text exceeds raster pixel budget');
+  const left = (node.w - w) / 2, top = (node.h - h) / 2;
+  const svg = `<svg xmlns="${ns}" width="${w}" height="${h}" viewBox="${left} ${top} ${w} ${h}"><text fill="${escapeTextXML(fill)}" font-family="${escapeTextXML(family)}" font-size="${size}" font-weight="${escapeTextXML(weight)}" style="white-space:pre">${spans.join('')}</text></svg>`;
+  const cv = await svgImageToCanvas(svg, w, h);
+  const src = cv.toDataURL('image/png');
+  if ((budget.bytes += src.length) > 8 * 1024 * 1024) throw new Error('Sigma text exceeds embedded data budget');
+  assertRasterSource(src);
+  return { kind: 'image', src, x: node.x + left, y: node.y + top, w, h, rotation: node.rotation ?? 0, opacity: node.opacity ?? 1 };
 }
 
 function triggerDownload(blob, filename) {
@@ -144,22 +214,9 @@ function pointsToNode(points, closed, fillColor, strokeColor, strokeWidth, name)
 // ─── EXPORT TO SIGMA ─────────────────────────────────────────────────────────
 
 export async function exportToSigma() {
-  const { canvas, items } = getDoc();
+  const { canvas, items } = structuredClone(getDoc());
   const name = getName();
 
-  let proj;
-  try {
-    proj = await api('/api/projects', {
-      method: 'POST',
-      body: { name: name + ' (from Pigment)' },
-    });
-  } catch (err) {
-    if (redirectIfSignedOut(err)) return;
-    setStatus('Send failed', 'error');
-    return;
-  }
-
-  const projectId = (proj.project && proj.project.id) || proj.id;
   const nodes = [];
   const MAX_NODES = 900;
 
@@ -175,7 +232,7 @@ export async function exportToSigma() {
   document.body.appendChild(offscreen);
 
   for (const item of items) {
-    if (nodes.length >= MAX_NODES) break;
+    if (nodes.length >= MAX_NODES) { offscreen.remove(); setStatus('Send failed: too many shapes', 'error'); return; }
 
     if (item.kind === 'stroke') {
       const b = bbox(item.points);
@@ -184,7 +241,7 @@ export async function exportToSigma() {
         type: 'path',
         name: 'Brush',
         x: b.x, y: b.y, w: b.w, h: b.h,
-        rotation: 0, opacity: 1, visible: true, locked: false, groupId: null,
+        rotation: 0, opacity: item.opacity ?? 1, visible: true, locked: false, groupId: null,
         closed: false,
         fill: 'none',
         stroke: flattenPaint(item.color),
@@ -199,12 +256,31 @@ export async function exportToSigma() {
         type: 'path',
         name: 'Shape',
         x: b.x, y: b.y, w: b.w, h: b.h,
-        rotation: 0, opacity: 1, visible: true, locked: false, groupId: null,
+        rotation: 0, opacity: item.opacity ?? 1, visible: true, locked: false, groupId: null,
         closed: true,
         fill: flattenPaint(item.fill),
         stroke: item.stroke || '#1e1e1e',
-        strokeWidth: item.strokeWidth || 2,
+        strokeWidth: item.strokeWidth ?? 2,
         points: item.points.map(([px, py]) => [px - b.x, py - b.y]),
+      });
+
+    } else if (item.kind === 'image') {
+      try { assertRasterSource(item.src); assertRasterDimensions(item.w, item.h); }
+      catch (err) { offscreen.remove(); setStatus(err.message, 'error'); return; }
+      nodes.push({
+        id: uid(),
+        type: 'image',
+        name: 'Image',
+        x: item.x,
+        y: item.y,
+        w: item.w,
+        h: item.h,
+        rotation: item.rotation ?? 0,
+        opacity: item.opacity ?? 1,
+        visible: true,
+        locked: false,
+        groupId: null,
+        src: item.src,
       });
 
     } else if (item.kind === 'art') {
@@ -218,7 +294,7 @@ export async function exportToSigma() {
 
       const allEls = Array.from(offscreen.querySelectorAll('*'));
       for (const el of allEls) {
-        if (nodes.length >= MAX_NODES) break;
+        if (nodes.length >= MAX_NODES) { offscreen.remove(); setStatus('Send failed: too many shapes', 'error'); return; }
         const regionId = el.getAttribute('data-region');
         const isDetail = el.classList && el.classList.contains('detail');
 
@@ -244,6 +320,19 @@ export async function exportToSigma() {
 
   document.body.removeChild(offscreen);
 
+  let proj;
+  try {
+    proj = await api('/api/projects', {
+      method: 'POST',
+      body: { name: name + ' (from Pigment)' },
+    });
+  } catch (err) {
+    if (redirectIfSignedOut(err)) return;
+    setStatus('Send failed', 'error');
+    return;
+  }
+
+  const projectId = (proj.project && proj.project.id) || proj.id;
   try {
     await api(`/api/projects/${projectId}`, {
       method: 'PUT',
@@ -261,7 +350,7 @@ export async function exportToSigma() {
       },
     });
     setStatus('Sent to Sigma ✓', '');
-    setTimeout(() => setStatus('Saved', ''), 3000);
+
   } catch (err) {
     if (redirectIfSignedOut(err)) return;
     setStatus('Send failed', 'error');
@@ -270,10 +359,19 @@ export async function exportToSigma() {
 
 // ─── OPEN IMPORT ──────────────────────────────────────────────────────────────
 
-export async function openImport() {
+// List items from the given source into #import-grid.
+async function listImportSource(src) {
   const grid = document.getElementById('import-grid');
   grid.innerHTML = '<p style="opacity:.6;padding:1rem;">Loading…</p>';
 
+  if (src === 'imagevendor') {
+    await listImageVendor(grid);
+  } else {
+    await listSigmaProjects(grid);
+  }
+}
+
+async function listSigmaProjects(grid) {
   let projects = [];
   try {
     const data = await api('/api/projects');
@@ -291,16 +389,25 @@ export async function openImport() {
   }
 
   for (const p of projects) {
-    const row = document.createElement('div');
+    const row = document.createElement('button');
+    row.type = 'button';
     row.className = 'import-item';
-    const thumb = p.thumbnail ? `<img src="${p.thumbnail}" alt="">` : '';
-    row.innerHTML = `${thumb}<span>${p.name || 'Untitled'}</span>`;
+    populateImportRow(row, p);
     row.addEventListener('click', async () => {
+      if (row.disabled) return;
+      row.disabled = true;
       try {
         const full = await api(`/api/projects/${p.id}`);
         const proj = full.project || full;
         const docData = proj.document || {};
         const rawNodes = docData.nodes || [];
+        let textSize = 0;
+        if (!Array.isArray(rawNodes) || rawNodes.length > 5000) throw new Error('Too many Sigma nodes');
+        for (const node of rawNodes) {
+          if (node.type === 'text' && node.visible !== false) textSize += validateSigmaText(node).text.length;
+        }
+        if (textSize > 262144) throw new Error('Sigma text exceeds import size budget');
+        const textBudget = { pixels: 0, bytes: 0 };
 
         // Sigma clipart needs its source library + an offscreen SVG so we can
         // sample each piece's geometry into colourable Pigment shapes.
@@ -323,10 +430,16 @@ export async function openImport() {
 
         const newItems = [];
         let skipped = 0;
+        let flattenedText = 0;
 
+        try {
         for (const node of rawNodes) {
           if (node.visible === false) { skipped++; continue; }
-          if (node.type === 'text') { skipped++; continue; }
+          if (node.type === 'text') {
+            newItems.push(await sigmaTextToItem(node, textBudget));
+            flattenedText++;
+            continue;
+          }
 
           if (node.type === 'clipart') {
             if (getClipart && offscreen) {
@@ -344,38 +457,128 @@ export async function openImport() {
           else skipped++;
         }
 
-        if (offscreen) document.body.removeChild(offscreen);
+        } finally { if (offscreen) offscreen.remove(); }
 
-        pushHistory();
-        // Mutate the live items array (reRenderAndSave reads getDoc().items).
-        const currentItems = getDoc().items;
-        for (const it of newItems) {
-          currentItems.push(it);
-        }
+        appendImportedItems(getDoc(), newItems, pushHistory);
         reRenderAndSave();
 
-        // Close modal
-        const modal = document.getElementById('import-modal');
-        if (modal) modal.classList.remove('show');
+        closeModal('import-modal');
 
-        setStatus(`Imported ${newItems.length} shapes (${skipped} skipped)`, '');
-        setTimeout(() => setStatus('Saved', ''), 4000);
+        setStatus(`Imported ${newItems.length} shapes (${skipped} skipped)${flattenedText ? `; ${flattenedText} flattened text image(s), not editable` : ''}`, '');
+
       } catch (err) {
         if (!redirectIfSignedOut(err)) {
           setStatus('Import failed', 'error');
         }
-      }
+      } finally { row.disabled = false; }
     });
     grid.appendChild(row);
   }
 }
 
-function convertNode(node) {
+async function listImageVendor(grid) {
+  let images = [];
+  try {
+    const data = await api('/api/images');
+    images = Array.isArray(data) ? data : (data.images || []);
+  } catch (err) {
+    if (redirectIfSignedOut(err)) return;
+    grid.innerHTML = '<p style="color:var(--c-err,red);padding:1rem;">Failed to load images.</p>';
+    return;
+  }
+
+  grid.innerHTML = '';
+  if (images.length === 0) {
+    grid.innerHTML = '<p style="opacity:.6;padding:1rem;">No ImageVendor images found.</p>';
+    return;
+  }
+
+  for (const img of images) {
+    const row = document.createElement('button');
+    row.type = 'button';
+    row.className = 'import-item';
+    populateImportRow(row, img);
+    row.addEventListener('click', async () => {
+      if (row.disabled) return;
+      row.disabled = true;
+      try {
+        const full = await api(`/api/images/${img.id}`);
+        const imageData = (full.image || full);
+        const docData = imageData.document || {};
+        const dataURL = await compositeRasterDocument(docData);
+        const { w: natW, h: natH } = docData.canvas;
+
+        // Fit within the painting canvas without upscaling beyond natural size
+        const paintCanvas = getDoc().canvas;
+        const maxW = paintCanvas.w;
+        const maxH = paintCanvas.h;
+        const scale = Math.min(1, maxW / natW, maxH / natH);
+        const fitW = Math.max(1, Math.round(natW * scale));
+        const fitH = Math.max(1, Math.round(natH * scale));
+        const fitX = Math.round((maxW - fitW) / 2);
+        const fitY = Math.round((maxH - fitH) / 2);
+
+        appendImportedItems(getDoc(), [{
+          kind: 'image',
+          x: fitX,
+          y: fitY,
+          w: fitW,
+          h: fitH,
+          src: dataURL,
+        }], pushHistory);
+        reRenderAndSave();
+
+        closeModal('import-modal');
+
+        setStatus('Imported image from ImageVendor', '');
+
+      } catch (err) {
+        if (!redirectIfSignedOut(err)) {
+          setStatus('Import failed', 'error');
+        }
+      } finally { row.disabled = false; }
+    });
+    grid.appendChild(row);
+  }
+}
+
+export function openImport() {
+  // Wire tab buttons (idempotent — use a flag to avoid double-binding)
+  const modal = document.getElementById('import-modal');
+  if (modal && !modal._importTabsWired) {
+    modal._importTabsWired = true;
+    modal.querySelectorAll('.import-src').forEach(btn => {
+      btn.addEventListener('click', () => {
+        modal.querySelectorAll('.import-src').forEach(b => {
+          b.classList.remove('active');
+          b.setAttribute('aria-selected', 'false');
+        });
+        btn.classList.add('active');
+        btn.setAttribute('aria-selected', 'true');
+        listImportSource(btn.dataset.src);
+      });
+    });
+  }
+
+  // List currently-active source
+  const activeBtn = modal && modal.querySelector('.import-src.active');
+  const src = activeBtn ? activeBtn.dataset.src : 'sigma';
+  listImportSource(src);
+}
+
+export function convertNode(node) {
   const x = node.x || 0;
   const y = node.y || 0;
   const w = node.w || 0;
   const h = node.h || 0;
   const type = node.type;
+  if (type === 'image') {
+    assertRasterSource(node.src);
+    assertRasterDimensions(node.w, node.h);
+    const opacity = node.opacity ?? 1, rotation = node.rotation ?? 0;
+    if (![node.x ?? 0, node.y ?? 0, opacity, rotation].every(Number.isFinite) || opacity < 0 || opacity > 1) throw new Error('Invalid image placement');
+    return { kind: 'image', src: node.src, x, y, w: node.w, h: node.h, opacity, rotation };
+  }
 
   let points = null;
   let isRegion = false;
@@ -430,21 +633,23 @@ function convertNode(node) {
   points = applyRotation(points, node);
 
   if (isRegion) {
-    const fill = (node.fill && node.fill !== 'none') ? node.fill : '#ffffff';
+    const fill = node.fill ?? 'none';
     return {
       kind: 'region',
+      opacity: node.opacity ?? 1,
       points,
       fill,
-      stroke: '#1e1e1e',
-      strokeWidth: 2,
+      stroke: node.stroke ?? 'none',
+      strokeWidth: node.strokeWidth ?? 0,
     };
   } else {
-    const color = (node.stroke && node.stroke !== 'none') ? node.stroke : '#1e1e1e';
+    const color = node.stroke ?? 'none';
     return {
       kind: 'stroke',
+      opacity: node.opacity ?? 1,
       points,
       color,
-      size: node.strokeWidth || 3,
+      size: node.strokeWidth ?? 3,
     };
   }
 }
@@ -515,20 +720,21 @@ function clipartToItems(node, getClipart, offscreen) {
 
     if (el.tagName.toLowerCase() === 'line') {
       // A bare line is never filled → a brush stroke.
-      items.push({ kind: 'stroke', points: rotated, color: strokeCol || '#1e1e1e', size: strokeW });
+      items.push({ kind: 'stroke', opacity: node.opacity ?? 1, points: rotated, color: strokeCol || '#1e1e1e', size: strokeW });
       continue;
     }
     const fill = normalizeColor(cs.fill);
     if (fill) {
       items.push({
         kind: 'region',
+        opacity: node.opacity ?? 1,
         points: rotated,
         fill,
         stroke: strokeCol || 'none',
         strokeWidth: strokeCol ? strokeW : 0,
       });
     } else if (strokeCol) {
-      items.push({ kind: 'stroke', points: rotated, color: strokeCol, size: strokeW });
+      items.push({ kind: 'stroke', opacity: node.opacity ?? 1, points: rotated, color: strokeCol, size: strokeW });
     }
   }
   offscreen.innerHTML = '';
@@ -559,4 +765,11 @@ export async function downloadPNG() {
   } catch (e) {
     alert('PNG export failed: ' + e.message);
   }
+}
+
+function populateImportRow(row, item) {
+  if (item.thumbnail) {
+    const image = document.createElement('img'); image.src = item.thumbnail; image.alt = ''; row.appendChild(image);
+  }
+  const name = document.createElement('span'); name.textContent = item.name || 'Untitled'; row.appendChild(name);
 }

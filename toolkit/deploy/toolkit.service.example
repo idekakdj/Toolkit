@@ -1,0 +1,52 @@
+[Unit]
+Description=Toolkit shared account and design server
+After=network.target
+
+[Service]
+Type=simple
+User=toolkit
+WorkingDirectory=/opt/toolkit/toolkit
+Environment=NODE_ENV=production
+Environment=TOOLKIT_PUBLIC_URL=https://toolkit.example.com
+Environment=TOOLKIT_DATA_DIR=/var/lib/toolkit
+Environment=PORT=4310
+# Secrets and optional settings live in a root-owned file (chmod 600), never in this unit:
+# see toolkit.env.example (TOOLKIT_DATA_KEY, TOOLKIT_SMTP_URL, TOOLKIT_PRIVACY_CONTACT, ...).
+EnvironmentFile=/etc/toolkit/toolkit.env
+ExecStart=/usr/bin/node server/hosted.cjs
+Restart=on-failure
+RestartSec=5
+UMask=0077
+
+# Sandboxing: the service needs the network and its own data directory, nothing else.
+NoNewPrivileges=true
+PrivateTmp=true
+PrivateDevices=true
+ProtectSystem=strict
+ProtectHome=true
+ProtectProc=invisible
+ProcSubset=pid
+ProtectKernelTunables=true
+ProtectKernelModules=true
+ProtectKernelLogs=true
+ProtectControlGroups=true
+ProtectClock=true
+ProtectHostname=true
+RestrictAddressFamilies=AF_INET AF_INET6 AF_UNIX
+RestrictNamespaces=true
+RestrictRealtime=true
+RestrictSUIDSGID=true
+LockPersonality=true
+SystemCallArchitectures=native
+CapabilityBoundingSet=
+AmbientCapabilities=
+ReadWritePaths=/var/lib/toolkit
+# (MemoryDenyWriteExecute is deliberately NOT set: Node's JIT needs writable+executable memory.)
+
+# Resource ceilings: the database lives in memory, so cap it rather than let it starve the host.
+MemoryMax=1500M
+TasksMax=256
+LimitNOFILE=4096
+
+[Install]
+WantedBy=multi-user.target

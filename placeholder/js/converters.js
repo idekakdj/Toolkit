@@ -140,6 +140,7 @@
       }
       if (head.length > 0 && bad / head.length < 0.02) text = loose;
     }
+    if (head.some(b => b === 0 || b < 9 || (b > 13 && b < 32))) text = null;
     if (text !== null) {
       const t = text.replace(/^﻿/, '').trimStart();
       if (ext === 'svg' || /^(<\?xml[^>]*>\s*)?(<!--[\s\S]*?-->\s*)?(<!DOCTYPE[^>]*>\s*)?<svg[\s>]/i.test(t)) return make('svg', 'image', true);
@@ -195,8 +196,7 @@
       img.decoding = 'async';
       img.src = url;
       await img.decode();
-      const w = img.naturalWidth || 1024;
-      const h = img.naturalHeight || 1024;
+      const { w, h } = imageOutputSize(img.naturalWidth || 1024, img.naturalHeight || 1024, opts);
       const canvas = document.createElement('canvas');
       canvas.width = w;
       canvas.height = h;
@@ -205,19 +205,40 @@
         ctx.fillStyle = '#ffffff';
         ctx.fillRect(0, 0, w, h);
       }
-      ctx.drawImage(img, 0, 0);
+      ctx.drawImage(img, 0, 0, w, h);
       return canvas;
     } catch (e) {
-      throw new Error('This browser could not decode the image. (' + (det.label || 'unknown type') + ')');
+      throw new Error('Image conversion failed: ' + (e.message || 'This browser could not decode ' + (det.label || 'the image')));
     } finally {
       URL.revokeObjectURL(url);
     }
   }
 
+  function imageOutputSize(naturalW, naturalH, opts = {}) {
+    const requested = value => {
+      if (value === undefined || value === null || value === '') return null;
+      if (typeof value !== 'number' || !Number.isInteger(value) || value < 1 || value > 8000) {
+        throw new Error('Image dimensions must be whole numbers from 1 to 8000.');
+      }
+      return value;
+    };
+    const width = requested(opts.width), height = requested(opts.height);
+    let w = width ?? naturalW, h = height ?? naturalH;
+    if ((width || height) && opts.keepAspect !== false) {
+      const scale = Math.min(width ? width / naturalW : Infinity, height ? height / naturalH : Infinity);
+      w = Math.max(1, Math.round(naturalW * scale));
+      h = Math.max(1, Math.round(naturalH * scale));
+    }
+    if (![w, h].every(n => Number.isInteger(n) && n >= 1 && n <= 8000) || w * h > 16000000) {
+      throw new Error('Output exceeds the image size limit (8000 pixels per side, 16 million pixels total).');
+    }
+    return { w, h };
+  }
+
   function canvasToBlob(canvas, mime, quality) {
     return new Promise((resolve, reject) => {
       canvas.toBlob((b) => {
-        if (b) resolve(b);
+        if (b && b.type === mime) resolve(b);
         else reject(new Error('The browser refused to encode ' + mime + '.'));
       }, mime, quality);
     });
@@ -292,9 +313,9 @@
     return new Blob([buf], { type: 'image/x-icon' });
   }
 
-  async function imageToPDF(file, det) {
+  async function imageToPDF(file, det, opts) {
     const jsPDF = libs.jspdf();
-    const canvas = await fileToCanvas(file, det, { flatten: true });
+    const canvas = await fileToCanvas(file, det, { ...opts, flatten: true });
     const wPt = canvas.width * 0.75;   // 96dpi px → pt
     const hPt = canvas.height * 0.75;
     const pdf = new jsPDF({
@@ -408,9 +429,9 @@
       v.preload = 'auto';
       v.addEventListener('error', () => { clearTimeout(timer); fail('This browser could not decode the video.'); });
       v.addEventListener('loadeddata', () => {
-        try { v.currentTime = Math.min(0.1, (v.duration || 0.2) / 2); } catch (e) { /* ignore */ }
+        capture();
       });
-      v.addEventListener('seeked', () => {
+      function capture() {
         if (settled) return; settled = true;
         clearTimeout(timer);
         try {
@@ -424,7 +445,7 @@
           URL.revokeObjectURL(url);
           reject(new Error('Could not capture a frame from the video.'));
         }
-      }, { once: true });
+      }
       v.src = url;
     });
   }
@@ -434,6 +455,7 @@
      ============================================================ */
 
   function parseDSV(text, delim) {
+    text = text.replace(/^\uFEFF/, '');
     const rows = [];
     let row = [], cur = '', inQ = false;
     for (let i = 0; i < text.length; i++) {
@@ -455,8 +477,9 @@
         cur += ch;
       }
     }
-    if (cur !== '' || row.length) { row.push(cur); rows.push(row); }
-    return rows.filter((r) => !(r.length === 1 && r[0].trim() === ''));
+    if (inQ) throw new Error('Unclosed quoted field in the table.');
+    if (cur !== '' || row.length || (text.length && !/[\r\n]$/.test(text))) { row.push(cur); rows.push(row); }
+    return rows;
   }
 
   function toDSV(rows, delim) {
@@ -470,8 +493,10 @@
   function rowsToObjects(rows) {
     if (rows.length < 1) throw new Error('The file appears to be empty.');
     const headers = rows[0].map((h, i) => (h && h.trim()) || 'column_' + (i + 1));
+    if (new Set(headers).size !== headers.length) throw new Error('Column headers must be unique for JSON export.');
+    if (rows.some(row => row.length > headers.length)) throw new Error('A row has more fields than the header. Add headers before exporting JSON.');
     return rows.slice(1).map((row) => {
-      const o = {};
+      const o = Object.create(null);
       headers.forEach((h, i) => { o[h] = row[i] !== undefined ? row[i] : ''; });
       return o;
     });
@@ -484,6 +509,7 @@
       return data.map((r) => (Array.isArray(r) ? r : [r]));
     }
     if (typeof data[0] === 'object' && data[0] !== null) {
+      if (data.some(item => !item || typeof item !== 'object' || Array.isArray(item))) throw new Error('Table rows must all be objects.');
       const headers = [];
       for (const item of data) {
         for (const k of Object.keys(item)) if (headers.indexOf(k) < 0) headers.push(k);
@@ -504,7 +530,7 @@
 
   function xmlToJson(node) {
     // elements → objects; repeated tags → arrays; attributes → "@attr"; text → "#text"
-    const obj = {};
+    const obj = Object.create(null);
     if (node.attributes) {
       for (const attr of node.attributes) obj['@' + attr.name] = attr.value;
     }
@@ -531,10 +557,11 @@
 
   function jsonToXmlNode(value, tag, indent) {
     const pad = '  '.repeat(indent);
-    const safeTag = /^[A-Za-z_][\w.-]*$/.test(tag) ? tag : 'item';
+    if (!/^[A-Za-z_][\w.-]*$/.test(tag)) throw new Error('JSON key cannot be represented as an XML element: ' + tag);
+    const safeTag = tag;
     if (value === null || value === undefined) return pad + '<' + safeTag + '/>';
     if (Array.isArray(value)) {
-      return value.map((v) => jsonToXmlNode(v, safeTag, indent)).join('\n');
+      return pad + '<' + safeTag + '>\n' + value.map((v) => jsonToXmlNode(v, 'item', indent + 1)).join('\n') + '\n' + pad + '</' + safeTag + '>';
     }
     if (typeof value === 'object') {
       const inner = Object.keys(value).map((k) => jsonToXmlNode(value[k], k, indent + 1)).join('\n');
@@ -591,34 +618,35 @@
 
     /* ---------- images ---------- */
     if (cat === 'image') {
-      if (id !== 'png') add({
+      add({
         id: 'png', label: 'PNG image (.png)', ext: 'png', hint: gifHint,
-        run: async (f, d) => canvasToBlob(await fileToCanvas(f, d), 'image/png'),
+        run: async (f, d, o) => canvasToBlob(await fileToCanvas(f, d, o), 'image/png'),
       });
-      if (id !== 'jpeg') add({
+      add({
         id: 'jpeg', label: 'JPEG image (.jpg)', ext: 'jpg', needsQuality: true,
         hint: gifHint || 'Transparency is flattened onto a white background.',
-        run: async (f, d, o) => canvasToBlob(await fileToCanvas(f, d, { flatten: true }), 'image/jpeg', o.quality),
+        run: async (f, d, o) => canvasToBlob(await fileToCanvas(f, d, { ...o, flatten: true }), 'image/jpeg', o.quality),
       });
-      if (id !== 'webp' && canvasCanEncode('image/webp')) add({
+      if (canvasCanEncode('image/webp')) add({
         id: 'webp', label: 'WebP image (.webp)', ext: 'webp', needsQuality: true, hint: gifHint,
-        run: async (f, d, o) => canvasToBlob(await fileToCanvas(f, d), 'image/webp', o.quality),
+        run: async (f, d, o) => canvasToBlob(await fileToCanvas(f, d, o), 'image/webp', o.quality),
       });
-      if (id !== 'bmp') add({
+      add({
         id: 'bmp', label: 'BMP image (.bmp)', ext: 'bmp',
         hint: gifHint || 'Transparency is flattened onto a white background.',
-        run: async (f, d) => canvasToBMP(await fileToCanvas(f, d, { flatten: true })),
+        run: async (f, d, o) => canvasToBMP(await fileToCanvas(f, d, { ...o, flatten: true })),
       });
-      if (id !== 'ico') add({
+      add({
         id: 'ico', label: 'ICO icon (.ico)', ext: 'ico',
         hint: 'Icons larger than 256×256 are scaled down to fit.',
-        run: async (f, d) => canvasToICO(await fileToCanvas(f, d)),
+        run: async (f, d, o) => canvasToICO(await fileToCanvas(f, d, o)),
       });
       if (hasLib('jspdf')) add({
         id: 'pdf', label: 'PDF document (.pdf)', ext: 'pdf',
         hint: gifHint || 'Creates a single-page PDF sized to the image.',
-        run: (f, d) => imageToPDF(f, d),
+        run: (f, d, o) => imageToPDF(f, d, o),
       });
+      for (const conversion of list) conversion.resize = true;
     }
 
     /* ---------- audio ---------- */
@@ -664,16 +692,16 @@
       add({
         id: 'csv', label: 'CSV table (.csv)', ext: 'csv',
         hint: 'Works when the JSON is an array of objects or an array of arrays.',
-        run: async (f) => new Blob([toDSV(jsonToRows(JSON.parse(await f.text())), ',')], { type: 'text/csv' }),
+        run: async (f) => new Blob([toDSV(jsonToRows(JSON.parse((await f.text()).replace(/^\uFEFF/, ''))), ',')], { type: 'text/csv' }),
       });
       if (hasLib('yaml')) add({
         id: 'yaml', label: 'YAML document (.yaml)', ext: 'yaml',
-        run: async (f) => new Blob([libs.yaml().dump(JSON.parse(await f.text()))], { type: 'text/yaml' }),
+        run: async (f) => new Blob([libs.yaml().dump(JSON.parse((await f.text()).replace(/^\uFEFF/, '')))], { type: 'text/yaml' }),
       });
       add({
         id: 'xml', label: 'XML document (.xml)', ext: 'xml',
         run: async (f) => {
-          const data = JSON.parse(await f.text());
+          const data = JSON.parse((await f.text()).replace(/^\uFEFF/, ''));
           const xml = '<?xml version="1.0" encoding="UTF-8"?>\n' + jsonToXmlNode(data, 'root', 0) + '\n';
           return new Blob([xml], { type: 'application/xml' });
         },
@@ -683,7 +711,7 @@
         hint: 'Works when the JSON is an array of objects or an array of arrays.',
         run: async (f) => {
           const XLSX = libs.xlsx();
-          const rows = jsonToRows(JSON.parse(await f.text()));
+          const rows = jsonToRows(JSON.parse((await f.text()).replace(/^\uFEFF/, '')));
           const ws = XLSX.utils.aoa_to_sheet(rows);
           const wb = XLSX.utils.book_new();
           XLSX.utils.book_append_sheet(wb, ws, 'Sheet1');
@@ -693,11 +721,11 @@
       });
       add({
         id: 'json-pretty', label: 'Pretty-printed JSON (.json)', ext: 'pretty.json',
-        run: async (f) => new Blob([JSON.stringify(JSON.parse(await f.text()), null, 2)], { type: 'application/json' }),
+        run: async (f) => new Blob([JSON.stringify(JSON.parse((await f.text()).replace(/^\uFEFF/, '')), null, 2)], { type: 'application/json' }),
       });
       add({
         id: 'json-min', label: 'Minified JSON (.json)', ext: 'min.json',
-        run: async (f) => new Blob([JSON.stringify(JSON.parse(await f.text()))], { type: 'application/json' }),
+        run: async (f) => new Blob([JSON.stringify(JSON.parse((await f.text()).replace(/^\uFEFF/, '')))], { type: 'application/json' }),
       });
     }
 
@@ -772,7 +800,7 @@
         run: async (f) => {
           const doc = new DOMParser().parseFromString(await f.text(), 'application/xml');
           if (doc.querySelector('parsererror')) throw new Error('The XML could not be parsed — please check it is well-formed.');
-          const out = {};
+          const out = Object.create(null);
           out[doc.documentElement.nodeName] = xmlToJson(doc.documentElement);
           return new Blob([JSON.stringify(out, null, 2)], { type: 'application/json' });
         },
@@ -801,7 +829,7 @@
         id: 'html', label: 'HTML table — first sheet (.html)', ext: 'html',
         run: async (f) => {
           const s = await readSheet(f);
-          return new Blob([wrapHtmlDoc(s.name, s.XLSX.utils.sheet_to_html(s.ws))], { type: 'text/html' });
+          return new Blob([s.XLSX.utils.sheet_to_html(s.ws)], { type: 'text/html' });
         },
       });
     }
@@ -868,7 +896,7 @@
       run: async (f) => {
         const fflate = libs.fflate();
         const u8 = new Uint8Array(await f.arrayBuffer());
-        const files = {};
+        const files = Object.create(null);
         files[f.name] = u8;
         const zipped = await new Promise((resolve, reject) => {
           fflate.zip(files, { level: 6 }, (err, data) => (err ? reject(err) : resolve(data)));

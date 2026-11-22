@@ -1,3 +1,4 @@
+import { assertRasterSource, assertRasterDimensions } from '/pigment/js/raster.js';
 // Pigment – main engine
 // type="module" — loaded by app.html
 
@@ -107,6 +108,7 @@ export function getDoc() { return { canvas: doc.canvas, items: doc.items }; }
 export function getName() { return paintingName; }
 
 export function pushHistory() {
+  if (!documentReady) throw new Error('Painting is not ready');
   undoStack.push(JSON.stringify({ canvas: doc.canvas, items: doc.items }));
   if (undoStack.length > 100) undoStack.shift();
   redoStack.length = 0;
@@ -187,7 +189,7 @@ function renderItem(item, idx) {
     const el = document.createElementNS('http://www.w3.org/2000/svg', 'path');
     el.setAttribute('fill', resolvePaint(item.fill));
     el.setAttribute('stroke', item.stroke || '#1e1e1e');
-    el.setAttribute('stroke-width', item.strokeWidth || 2);
+    el.setAttribute('stroke-width', item.strokeWidth ?? 2);
     el.setAttribute('stroke-linejoin', 'round');
     el.setAttribute('d', buildPathD(item.points, true));
     el.setAttribute('data-item-index', idx);
@@ -215,6 +217,19 @@ function renderItem(item, idx) {
     }
     return g;
   }
+  if (item.kind === 'image') {
+    const el = document.createElementNS('http://www.w3.org/2000/svg', 'image');
+    el.setAttributeNS('http://www.w3.org/1999/xlink', 'href', item.src);
+    el.setAttribute('href', item.src);
+    el.setAttribute('x', item.x);
+    el.setAttribute('y', item.y);
+    el.setAttribute('width', item.w);
+    el.setAttribute('height', item.h);
+    el.setAttribute('preserveAspectRatio', 'none');
+    if (item.rotation) el.setAttribute('transform', `rotate(${item.rotation} ${item.x + item.w / 2} ${item.y + item.h / 2})`);
+    el.setAttribute('data-item-index', idx);
+    return el;
+  }
   return null;
 }
 
@@ -237,7 +252,7 @@ function reRender() {
   liveDefs = defs;
   for (let i = 0; i < doc.items.length; i++) {
     const el = renderItem(doc.items[i], i);
-    if (el) svg.appendChild(el);
+    if (el) { el.setAttribute('opacity', doc.items[i].opacity ?? 1); svg.appendChild(el); }
   }
 }
 
@@ -258,9 +273,13 @@ let autosaveTimer = null;
 let isSaving = false;
 let saveQueued = false;
 let hasUnsavedEdits = false;
+let editRevision = 0;
+let documentReady = false;
 
 function scheduleAutosave() {
   hasUnsavedEdits = true;
+  editRevision++;
+  if (saveConflict) { setStatus(conflictMessage, 'error'); return; }
   setStatus('Edited', '');
   clearTimeout(autosaveTimer);
   autosaveTimer = setTimeout(doAutosave, 1500);
@@ -271,20 +290,22 @@ async function generateThumbnail() {
     const { w, h } = doc.canvas;
     const maxW = 280;
     const scale = Math.min(1, maxW / w);
-    const tw = Math.round(w * scale);
-    const th = Math.round(h * scale);
+    const tw = Math.max(1, Math.round(w * scale));
+    const th = Math.max(1, Math.round(h * scale));
 
     const svgStr = buildSheetSVG();
     const blob = new Blob([svgStr], { type: 'image/svg+xml' });
     const url = URL.createObjectURL(blob);
 
-    const img = await new Promise((resolve, reject) => {
-      const im = new Image();
-      im.onload = () => resolve(im);
-      im.onerror = reject;
-      im.src = url;
-    });
-    URL.revokeObjectURL(url);
+    let img;
+    try {
+      img = await new Promise((resolve, reject) => {
+        const im = new Image();
+        im.onload = () => resolve(im);
+        im.onerror = reject;
+        im.src = url;
+      });
+    } finally { URL.revokeObjectURL(url); }
 
     const canvas = document.createElement('canvas');
     canvas.width = tw;
@@ -303,86 +324,39 @@ async function generateThumbnail() {
 }
 
 function buildSheetSVG() {
-  const { w, h, bg } = doc.canvas;
-  const gradDefs = new Map();
-
-  function resolveStr(p) {
-    if (!isGradient(p)) return p;
-    const id = 'grad-' + gradKey(p);
-    if (!gradDefs.has(id)) gradDefs.set(id, p);
-    return 'url(#' + id + ')';
-  }
-
-  function buildGradDefStr(id, p) {
-    if (p.grad === 'radial') {
-      const stops = (p.stops || []).map(s =>
-        `<stop offset="${s.at}" stop-color="${s.color}"/>`
-      ).join('');
-      return `<radialGradient id="${id}">${stops}</radialGradient>`;
-    }
-    const rad = (Number(p.angle) || 0) * Math.PI / 180;
-    const x1 = (0.5 - Math.cos(rad) / 2).toFixed(4);
-    const y1 = (0.5 - Math.sin(rad) / 2).toFixed(4);
-    const x2 = (0.5 + Math.cos(rad) / 2).toFixed(4);
-    const y2 = (0.5 + Math.sin(rad) / 2).toFixed(4);
-    const stops = (p.stops || []).map(s =>
-      `<stop offset="${s.at}" stop-color="${s.color}"/>`
-    ).join('');
-    return `<linearGradient id="${id}" x1="${x1}" y1="${y1}" x2="${x2}" y2="${y2}">${stops}</linearGradient>`;
-  }
-
-  const bodyLines = [];
-  bodyLines.push(`<rect x="0" y="0" width="${w}" height="${h}" fill="${bg}"/>`);
-  for (let i = 0; i < doc.items.length; i++) {
-    const item = doc.items[i];
-    if (item.kind === 'stroke') {
-      const d = buildPathD(item.points, false);
-      bodyLines.push(`<path fill="none" stroke="${resolveStr(item.color)}" stroke-width="${item.size}" stroke-linecap="round" stroke-linejoin="round" d="${d}"/>`);
-    } else if (item.kind === 'region') {
-      const d = buildPathD(item.points, true);
-      bodyLines.push(`<path fill="${resolveStr(item.fill)}" stroke="${item.stroke || '#1e1e1e'}" stroke-width="${item.strokeWidth || 2}" stroke-linejoin="round" d="${d}"/>`);
-    } else if (item.kind === 'art') {
-      const piece = getColoring(item.artId);
-      if (!piece) continue;
-      const sx = item.w / 200;
-      const sy = item.h / 200;
-      const fills = item.fills || {};
-      // Parse markup and apply fills
-      const tmp = document.createElementNS('http://www.w3.org/2000/svg', 'svg');
-      tmp.innerHTML = piece.markup;
-      let innerParts = [];
-      for (const child of Array.from(tmp.children)) {
-        const regionId = child.getAttribute('data-region');
-        if (regionId) {
-          child.setAttribute('fill', resolveStr(fills[regionId] || '#ffffff'));
-        }
-        innerParts.push(new XMLSerializer().serializeToString(child));
-      }
-      bodyLines.push(`<g transform="translate(${item.x} ${item.y}) scale(${sx} ${sy})">${innerParts.join('')}</g>`);
-    }
-  }
-
-  // Build defs string if any gradients were used
-  let defsStr = '';
-  if (gradDefs.size > 0) {
-    const defParts = [];
-    for (const [id, p] of gradDefs) {
-      defParts.push(buildGradDefStr(id, p));
-    }
-    defsStr = `<defs>${defParts.join('')}</defs>\n`;
-  }
-
-  const lines = [`<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 ${w} ${h}" width="${w}" height="${h}">`, defsStr + bodyLines.join('\n'), '</svg>'];
-  return lines.join('\n');
+  // Serialize DOM attributes instead of interpolating imported paint/source strings.
+  const root = document.createElementNS('http://www.w3.org/2000/svg', 'svg');
+  root.setAttribute('xmlns', 'http://www.w3.org/2000/svg');
+  root.setAttribute('viewBox', `0 0 ${doc.canvas.w} ${doc.canvas.h}`);
+  root.setAttribute('width', doc.canvas.w);
+  root.setAttribute('height', doc.canvas.h);
+  const oldDefs = liveDefs;
+  const defs = document.createElementNS('http://www.w3.org/2000/svg', 'defs');
+  root.appendChild(defs);
+  liveDefs = defs;
+  try {
+    const bg = document.createElementNS('http://www.w3.org/2000/svg', 'rect');
+    bg.setAttribute('width', doc.canvas.w); bg.setAttribute('height', doc.canvas.h);
+    bg.setAttribute('fill', doc.canvas.bg); root.appendChild(bg);
+    doc.items.forEach((item, idx) => {
+      const el = renderItem(item, idx);
+      if (el) { el.setAttribute('opacity', item.opacity ?? 1); root.appendChild(el); }
+    });
+    return new XMLSerializer().serializeToString(root);
+  } finally { liveDefs = oldDefs; }
 }
 
 // Export for interop.js
 export { buildSheetSVG };
 
+let serverRevision = 0;
+let saveConflict = false;
+const conflictMessage = "Save conflict: changed in another tab. Local edits kept; export them using Export, then reload to resume saving.";
 let saveRetryTimer = null;
 
 async function doAutosave(isRetry = false) {
-  if (!paintingId) return;
+  if (saveConflict || !paintingId || !documentReady) return;
+  clearTimeout(saveRetryTimer);
   if (isSaving) {
     saveQueued = true;
     return;
@@ -390,28 +364,39 @@ async function doAutosave(isRetry = false) {
   isSaving = true;
   saveQueued = false;
   setStatus('Saving…', 'saving');
+  const revision = editRevision;
+  const snapshot = structuredClone({ name: paintingName, document: { version: 1, canvas: doc.canvas, items: doc.items } });
 
   try {
     const thumbnail = await generateThumbnail();
-    await api(`/api/paintings/${paintingId}`, {
+    const result = await api(`/api/paintings/${paintingId}`, {
       method: 'PUT',
       body: {
-        name: paintingName,
-        document: { version: 1, canvas: doc.canvas, items: doc.items },
+        ...snapshot,
+        baseRevision: serverRevision,
         thumbnail,
       },
     });
-    hasUnsavedEdits = false;
-    setStatus('Saved', '');
+    serverRevision = result?.painting?.revision ?? serverRevision + 1;
+    hasUnsavedEdits = editRevision !== revision;
+    setStatus(hasUnsavedEdits ? 'Edited' : 'Saved', '');
+    if (hasUnsavedEdits) saveQueued = true;
   } catch (err) {
     if (redirectIfSignedOut(err)) { isSaving = false; return; }
+    if (err.status === 409) {
+      saveConflict = true;
+      hasUnsavedEdits = true; saveQueued = false;
+      clearTimeout(autosaveTimer); clearTimeout(saveRetryTimer);
+      setStatus(conflictMessage, 'error');
+      return;
+    }
     setStatus('Save failed', 'error');
     if (!isRetry) {
       saveRetryTimer = setTimeout(() => doAutosave(true), 4000);
     }
   } finally {
     isSaving = false;
-    if (saveQueued) {
+    if (saveQueued && !saveConflict) {
       scheduleAutosave();
     }
   }
@@ -419,24 +404,66 @@ async function doAutosave(isRetry = false) {
 
 // ─── TOOLS – POINTER HANDLING ────────────────────────────────────────────────
 
+let activePointerId = null;
 let isDrawing = false;
 let activeStrokeIndex = -1;
 let eraserActive = false;
 let eraserHistoryPushed = false;
+let shapeGesture = null;
+
+function shapeItem(gesture, evt) {
+  const end = screenToCanvas(evt);
+  let dx = end[0] - gesture.start[0], dy = end[1] - gesture.start[1];
+  if (evt.shiftKey) {
+    const side = Math.max(Math.abs(dx), Math.abs(dy));
+    dx = (dx < 0 ? -1 : 1) * side;
+    dy = (dy < 0 ? -1 : 1) * side;
+  }
+  const x = Math.min(gesture.start[0], gesture.start[0] + dx);
+  const y = Math.min(gesture.start[1], gesture.start[1] + dy);
+  const w = Math.abs(dx), h = Math.abs(dy);
+  const rect = svg.getBoundingClientRect();
+  // Ignore clicks and sub-three-pixel dimensions at the current zoom.
+  if (![x, y, w, h].every(Number.isFinite) || w * rect.width / doc.canvas.w < 3 || h * rect.height / doc.canvas.h < 3) return null;
+  const points = gesture.tool === 'rectangle'
+    ? [[x, y], [x + w, y], [x + w, y + h], [x, y + h]]
+    : Array.from({ length: 48 }, (_, i) => {
+      const t = i / 48 * Math.PI * 2;
+      return [x + w / 2 + Math.cos(t) * w / 2, y + h / 2 + Math.sin(t) * h / 2];
+    });
+  return { kind: 'region', points, fill: gesture.paint, stroke: '#1e1e1e', strokeWidth: 2 };
+}
+
+function previewShape(evt) {
+  shapeGesture.item = shapeItem(shapeGesture, evt);
+  shapeGesture.preview?.remove();
+  shapeGesture.preview = null;
+  if (!shapeGesture.item) return;
+  const el = renderItem(shapeGesture.item, -1);
+  el.removeAttribute('data-item-index');
+  el.setAttribute('data-shape-preview', shapeGesture.tool);
+  el.setAttribute('pointer-events', 'none');
+  svg.appendChild(el);
+  shapeGesture.preview = el;
+}
 
 svg.addEventListener('pointerdown', onPointerDown);
 svg.addEventListener('pointermove', onPointerMove);
 svg.addEventListener('pointerup', onPointerUp);
-svg.addEventListener('pointerleave', onPointerUp);
+svg.addEventListener('pointercancel', onPointerUp);
+svg.addEventListener('lostpointercapture', onPointerUp);
 
 function onPointerDown(evt) {
-  if (evt.button !== 0) return;
+  if (evt.button !== 0 || !documentReady || activePointerId !== null) return;
+  activePointerId = evt.pointerId;
   evt.preventDefault();
   try { svg.setPointerCapture(evt.pointerId); } catch { /* synthetic or stale pointer */ }
 
   const pt = screenToCanvas(evt);
 
-  if (currentTool === 'brush') {
+  if (currentTool === 'rectangle' || currentTool === 'ellipse') {
+    shapeGesture = { tool: currentTool, start: pt, paint: currentPaint(), item: null, preview: null };
+  } else if (currentTool === 'brush') {
     pushHistory();
     const item = {
       kind: 'stroke',
@@ -453,6 +480,7 @@ function onPointerDown(evt) {
   } else if (currentTool === 'eraser') {
     eraserActive = true;
     eraserHistoryPushed = false;
+    eraserGesture = { start: pt, moved: false };
     eraseAt(pt, evt);
   } else if (currentTool === 'fill') {
     doFill(evt, pt);
@@ -460,7 +488,10 @@ function onPointerDown(evt) {
 }
 
 function onPointerMove(evt) {
-  if (currentTool === 'brush' && isDrawing) {
+  if (evt.pointerId !== activePointerId) return;
+  if (shapeGesture) {
+    previewShape(evt);
+  } else if (currentTool === 'brush' && isDrawing) {
     const pt = screenToCanvas(evt);
     const item = doc.items[activeStrokeIndex];
     if (!item) return;
@@ -477,12 +508,30 @@ function onPointerMove(evt) {
     }
   } else if (currentTool === 'eraser' && eraserActive) {
     const pt = screenToCanvas(evt);
+    if (eraserGesture && Math.hypot(pt[0] - eraserGesture.start[0], pt[1] - eraserGesture.start[1]) > 4) eraserGesture.moved = true;
     eraseAt(pt, evt);
   }
 }
 
 function onPointerUp(evt) {
-  if (currentTool === 'brush' && isDrawing) {
+  if (evt && evt.pointerId !== activePointerId) return;
+  const pointer = activePointerId;
+  const gesture = shapeGesture;
+  if (gesture && evt?.type === 'pointerup') gesture.item = shapeItem(gesture, evt);
+  shapeGesture = null;
+  gesture?.preview?.remove();
+  activePointerId = null;
+  if (pointer !== null && svg.hasPointerCapture(pointer)) svg.releasePointerCapture(pointer);
+  if (gesture) {
+    if (evt?.type === 'pointerup' && gesture.item) {
+      pushHistory();
+      doc.items.push(gesture.item);
+      reRender();
+      scheduleAutosave();
+    } else {
+      reRender();
+    }
+  } else if (isDrawing) {
     isDrawing = false;
     // Ensure at least a dot for single-point strokes
     const item = doc.items[activeStrokeIndex];
@@ -491,8 +540,14 @@ function onPointerUp(evt) {
     }
     activeStrokeIndex = -1;
     scheduleAutosave();
-  } else if (currentTool === 'eraser' && eraserActive) {
+  } else if (eraserActive) {
     eraserActive = false;
+    // A still click that erased no mark removes the picture under it (coloring page or
+    // imported image). Drags never do, so cleaning up a drawing cannot wipe its page.
+    if (evt?.type === 'pointerup' && eraserGesture && !eraserGesture.moved && !eraserHistoryPushed) {
+      eraseObjectAt(eraserGesture.start);
+    }
+    eraserGesture = null;
     if (eraserHistoryPushed) {
       reRender();
       scheduleAutosave();
@@ -501,21 +556,12 @@ function onPointerUp(evt) {
 }
 
 function eraseAt(pt, evt) {
-  const before = doc.items.length;
-  const toRemove = new Set();
+  const hits = [];
   for (let i = 0; i < doc.items.length; i++) {
-    const item = doc.items[i];
-    if (item.kind !== 'stroke') continue;
-    const radius = item.size / 2 + 6;
-    for (const p of item.points) {
-      const dx = p[0] - pt[0];
-      const dy = p[1] - pt[1];
-      if (Math.sqrt(dx * dx + dy * dy) <= radius) {
-        toRemove.add(i);
-        break;
-      }
-    }
+    if (eraserHits(doc.items[i], pt)) hits.push(i);
   }
+  // Dragging erases marks only (strokes and shapes); pictures are removed by a click.
+  const toRemove = new Set(hits.filter(i => doc.items[i].kind === 'stroke' || doc.items[i].kind === 'region'));
   if (toRemove.size > 0) {
     if (!eraserHistoryPushed) {
       pushHistory();
@@ -524,6 +570,70 @@ function eraseAt(pt, evt) {
     doc.items = doc.items.filter((_, i) => !toRemove.has(i));
     reRender();
   }
+}
+
+// Current eraser gesture: where it started and whether it has moved.
+let eraserGesture = null;
+
+// Remove the topmost coloring page or image under pt (one undo step).
+function eraseObjectAt(pt) {
+  for (let i = doc.items.length - 1; i >= 0; i--) {
+    const item = doc.items[i];
+    if ((item.kind === 'art' || item.kind === 'image') && eraserHits(item, pt)) {
+      pushHistory();
+      doc.items.splice(i, 1);
+      eraserHistoryPushed = true;
+      return;
+    }
+  }
+}
+
+// The eraser removes whole objects it touches: brush strokes, shapes, imported images
+// and coloring pages. Shapes count as touched inside their fill or on their outline.
+function eraserHits(item, pt) {
+  if (item.kind === 'stroke') {
+    return item.points.length > 0 && distanceToPolyline(pt, item.points, false) <= item.size / 2 + 6;
+  }
+  if (item.kind === 'region') {
+    if (!item.points || item.points.length < 2) return false;
+    const filled = item.fill && item.fill !== 'none';
+    return (filled && insidePolygon(pt, item.points)) ||
+      distanceToPolyline(pt, item.points, true) <= (item.strokeWidth || 2) / 2 + 6;
+  }
+  if (item.kind === 'image' || item.kind === 'art') {
+    if (item.rotation) {
+      // Test against the unrotated box by rotating the point the other way.
+      const cx = item.x + item.w / 2, cy = item.y + item.h / 2, a = -item.rotation * Math.PI / 180;
+      const dx = pt[0] - cx, dy = pt[1] - cy;
+      pt = [cx + dx * Math.cos(a) - dy * Math.sin(a), cy + dx * Math.sin(a) + dy * Math.cos(a)];
+    }
+    return pt[0] >= item.x && pt[0] <= item.x + item.w && pt[1] >= item.y && pt[1] <= item.y + item.h;
+  }
+  return false;
+}
+
+// Distance from pt to the polyline through points (closed adds the last-to-first edge).
+function distanceToPolyline(pt, points, closed) {
+  let best = Infinity;
+  const n = points.length;
+  const edges = closed ? n : n - 1;
+  for (let j = 0; j < Math.max(edges, 1); j++) {
+    const prev = points[j], p = points[(j + 1) % n] || prev;
+    const vx = p[0] - prev[0], vy = p[1] - prev[1];
+    const t = Math.max(0, Math.min(1, ((pt[0] - prev[0]) * vx + (pt[1] - prev[1]) * vy) / (vx * vx + vy * vy || 1)));
+    best = Math.min(best, Math.hypot(prev[0] + t * vx - pt[0], prev[1] + t * vy - pt[1]));
+  }
+  return best;
+}
+
+// Even-odd point-in-polygon test.
+function insidePolygon(pt, points) {
+  let inside = false;
+  for (let i = 0, j = points.length - 1; i < points.length; j = i++) {
+    const [xi, yi] = points[i], [xj, yj] = points[j];
+    if ((yi > pt[1]) !== (yj > pt[1]) && pt[0] < ((xj - xi) * (pt[1] - yi)) / (yj - yi) + xi) inside = !inside;
+  }
+  return inside;
 }
 
 function doFill(evt, pt) {
@@ -564,6 +674,10 @@ function doFill(evt, pt) {
       const idx = parseInt(el2.getAttribute('data-item-index'), 10);
       const item = doc.items[idx];
       if (item) {
+        if (item.kind === 'image') {
+          // image items are not colorable — ignore fill tool
+          return;
+        }
         if (item.kind === 'region') {
           pushHistory();
           item.fill = currentPaint();
@@ -588,6 +702,7 @@ function doFill(evt, pt) {
 // ─── UNDO / REDO ─────────────────────────────────────────────────────────────
 
 function undo() {
+  onPointerUp();
   if (undoStack.length === 0) return;
   redoStack.push(JSON.stringify({ canvas: doc.canvas, items: doc.items }));
   const snap = JSON.parse(undoStack.pop());
@@ -599,6 +714,7 @@ function undo() {
 }
 
 function redo() {
+  onPointerUp();
   if (redoStack.length === 0) return;
   undoStack.push(JSON.stringify({ canvas: doc.canvas, items: doc.items }));
   const snap = JSON.parse(redoStack.pop());
@@ -613,27 +729,41 @@ document.getElementById('undo-btn').addEventListener('click', undo);
 document.getElementById('redo-btn').addEventListener('click', redo);
 
 document.addEventListener('keydown', (evt) => {
-  const tag = document.activeElement && document.activeElement.tagName.toLowerCase();
-  if (tag === 'input' || tag === 'textarea' || tag === 'select') return;
+  // Ctrl/Cmd+Shift+X → back to the Toolkit home. Checked before the field
+  // guard below so it works even while a text field is focused.
+  if ((evt.ctrlKey || evt.metaKey) && evt.shiftKey && evt.code === 'KeyX') {
+    evt.preventDefault();
+    window.location.href = '/';
+    return;
+  }
 
-  if (evt.key === 'z' && evt.ctrlKey && evt.shiftKey) { evt.preventDefault(); redo(); return; }
-  if (evt.key === 'y' && evt.ctrlKey) { evt.preventDefault(); redo(); return; }
-  if (evt.key === 'z' && evt.ctrlKey) { evt.preventDefault(); undo(); return; }
+  if (evt.key === 'Escape' && shapeGesture) { evt.preventDefault(); onPointerUp(); return; }
+
+  const tag = document.activeElement && document.activeElement.tagName.toLowerCase();
+  if (tag === 'input' || tag === 'textarea' || tag === 'select' || document.activeElement?.isContentEditable || document.querySelector('.modal-backdrop.show')) return;
+
+  if (evt.key.toLowerCase() === 'z' && (evt.ctrlKey || evt.metaKey) && evt.shiftKey) { evt.preventDefault(); redo(); return; }
+  if (evt.key.toLowerCase() === 'y' && (evt.ctrlKey || evt.metaKey)) { evt.preventDefault(); redo(); return; }
+  if (evt.key.toLowerCase() === 'z' && (evt.ctrlKey || evt.metaKey)) { evt.preventDefault(); undo(); return; }
 
   // Tool shortcuts
   if (!evt.ctrlKey && !evt.metaKey && !evt.altKey) {
     if (evt.key === 'b') setTool('brush');
     if (evt.key === 'e') setTool('eraser');
     if (evt.key === 'f') setTool('fill');
+    if (evt.key === 'r') setTool('rectangle');
+    if (evt.key === 'o') setTool('ellipse');
   }
 });
 
 // ─── TOOL BUTTONS ────────────────────────────────────────────────────────────
 
 function setTool(name) {
+  onPointerUp();
   currentTool = name;
   document.querySelectorAll('.tool-btn').forEach(btn => {
     btn.classList.toggle('active', btn.dataset.tool === name);
+    btn.setAttribute('aria-pressed', String(btn.dataset.tool === name));
   });
 }
 
@@ -679,6 +809,8 @@ palette.addEventListener('click', (evt) => {
 
 document.getElementById('brush-size').addEventListener('input', (evt) => {
   currentSize = parseInt(evt.target.value, 10);
+  const label = document.getElementById('brush-size-value');
+  if (label) label.textContent = String(currentSize);
 });
 
 // Init currentSize and currentColor from DOM
@@ -766,6 +898,10 @@ function populateLibrary() {
   for (const piece of COLORING) {
     const tile = document.createElement('div');
     tile.className = 'lib-item';
+    tile.tabIndex = 0;
+    tile.setAttribute('role', 'button');
+    tile.setAttribute('aria-label', piece.name);
+    tile.addEventListener('keydown', activateTile);
     tile.innerHTML = `<svg viewBox="0 0 200 200" xmlns="http://www.w3.org/2000/svg">${piece.markup}</svg><div class="lib-name">${piece.name}</div>`;
     tile.addEventListener('click', () => {
       pushHistory();
@@ -793,12 +929,19 @@ function populateLibrary() {
 
 function openModal(id) {
   const el = document.getElementById(id);
-  if (el) el.classList.add('show');
+  if (el) {
+    el._opener = document.activeElement;
+    el.classList.add('show');
+    el.querySelector('.modal').setAttribute('role', 'dialog');
+    el.querySelector('.modal').setAttribute('aria-modal', 'true');
+    el.querySelector('.modal').setAttribute('aria-label', el.querySelector('h2').textContent);
+    el.querySelector('button, input, select, [tabindex]').focus();
+  }
 }
 
-function closeModal(id) {
+export function closeModal(id) {
   const el = document.getElementById(id);
-  if (el) el.classList.remove('show');
+  if (el) { el.classList.remove('show'); el._opener?.focus(); }
 }
 
 // Close buttons
@@ -813,8 +956,9 @@ document.querySelectorAll('.modal-backdrop').forEach(backdrop => {
   });
 });
 
-document.getElementById('gallery-btn').addEventListener('click', () => {
+document.getElementById('gallery-btn').addEventListener('click', async () => {
   openModal('gallery-modal');
+  populateGalleryGrid(await loadGallery());
 });
 
 document.getElementById('library-btn').addEventListener('click', () => {
@@ -858,38 +1002,20 @@ exportGo.addEventListener('click', async () => {
 // ─── PAINTING NAME ───────────────────────────────────────────────────────────
 
 const paintingNameInput = document.getElementById('painting-name');
-paintingNameInput.addEventListener('change', async () => {
-  paintingName = paintingNameInput.value || 'Untitled painting';
+paintingNameInput.addEventListener('input', () => {
+  if (!documentReady) return;
+  paintingName = paintingNameInput.value.trim() || 'Untitled painting';
   document.title = paintingName + ' — Pigment';
-  if (!paintingId) return;
-  try {
-    await api(`/api/paintings/${paintingId}`, {
-      method: 'PUT',
-      body: { name: paintingName },
-    });
-    setStatus('Saved', '');
-  } catch (err) {
-    if (!redirectIfSignedOut(err)) setStatus('Save failed', 'error');
-  }
+  scheduleAutosave();
 });
 
 // ─── BEFORE UNLOAD ───────────────────────────────────────────────────────────
 
-window.addEventListener('beforeunload', () => {
+window.addEventListener('beforeunload', (evt) => {
   if (!hasUnsavedEdits || !paintingId) return;
-  const body = JSON.stringify({
-    document: { version: 1, canvas: doc.canvas, items: doc.items },
-  });
-  fetch(`/api/paintings/${paintingId}`, {
-    method: 'PUT',
-    keepalive: true,
-    credentials: 'same-origin',
-    headers: {
-      'Content-Type': 'application/json',
-      'X-Requested-With': 'pigment',
-    },
-    body,
-  }).catch(() => {});
+  evt.preventDefault();
+  evt.returnValue = '';
+
 });
 
 // ─── GALLERY ─────────────────────────────────────────────────────────────────
@@ -914,8 +1040,14 @@ function populateGalleryGrid(list) {
   for (const p of list) {
     const card = document.createElement('div');
     card.className = 'gallery-item';
-    const thumb = p.thumbnail ? `<img src="${p.thumbnail}" alt="">` : '<img alt="">';
-    card.innerHTML = `<div class="g-thumb">${thumb}</div><div class="g-name">${p.name || 'Untitled'}</div><button class="g-del">✕</button>`;
+    card.innerHTML = '<div class="g-thumb"><img alt=""></div><div class="g-name"></div><button class="g-del">✕</button>';
+    if (p.thumbnail) card.querySelector('img').src = p.thumbnail;
+    card.querySelector('.g-name').textContent = p.name || 'Untitled';
+    card.querySelector('.g-del').setAttribute('aria-label', 'Delete ' + (p.name || 'Untitled'));
+    card.tabIndex = 0;
+    card.setAttribute('role', 'button');
+    card.setAttribute('aria-label', 'Open ' + (p.name || 'Untitled'));
+    card.addEventListener('keydown', activateTile);
     card.querySelector('.g-del').addEventListener('click', async (evt) => {
       evt.stopPropagation();
       if (!confirm(`Delete "${p.name}"?`)) return;
@@ -954,16 +1086,26 @@ async function init() {
     try {
       const data = await api(`/api/paintings/${paintingId}`);
       const painting = data.painting || data;
+      serverRevision = painting.revision ?? 0;
       paintingName = painting.name || 'Untitled painting';
       paintingNameInput.value = paintingName;
       document.title = paintingName + ' — Pigment';
       const loaded = painting.document || { version: 1, canvas: { w: 1600, h: 1000, bg: '#ffffff' }, items: [] };
-      doc.canvas = loaded.canvas || doc.canvas;
+      if (!loaded.canvas || !Number.isInteger(loaded.canvas.w) || !Number.isInteger(loaded.canvas.h) || loaded.canvas.w < 1 || loaded.canvas.h < 1 || loaded.canvas.w > 8000 || loaded.canvas.h > 8000 || !Array.isArray(loaded.items)) throw new Error('Invalid painting document');
+      for (const item of loaded.items) {
+        if (item?.kind === 'image') { assertRasterSource(item.src); assertRasterDimensions(item.w, item.h); }
+      }
+      doc.canvas = loaded.canvas;
       doc.items = loaded.items || [];
     } catch (err) {
       if (redirectIfSignedOut(err)) return;
       console.error('Failed to load painting', err);
+      paintingId = null;
+      initSvg();
+      setStatus('Load failed — reload to retry', 'error');
+      return;
     }
+    documentReady = true;
     initSvg();
     setStatus('Saved', '');
   } else {
@@ -987,4 +1129,24 @@ async function init() {
   });
 }
 
+function activateTile(evt) {
+  if (evt.target === evt.currentTarget && (evt.key === 'Enter' || evt.key === ' ')) {
+    evt.preventDefault(); evt.currentTarget.click();
+  }
+}
+document.addEventListener('keydown', evt => {
+  const modal = document.querySelector('.modal-backdrop.show');
+  if (!modal) return;
+  if (evt.key === 'Escape') { evt.preventDefault(); closeModal(modal.id); }
+  if (evt.key === 'Tab') {
+    const controls = [...modal.querySelectorAll('button:not(:disabled), input, select, [tabindex="0"]')];
+    const first = controls[0], last = controls.at(-1);
+    if (evt.shiftKey && document.activeElement === first) { evt.preventDefault(); last?.focus(); }
+    else if (!evt.shiftKey && document.activeElement === last) { evt.preventDefault(); first?.focus(); }
+  }
+});
+document.querySelectorAll('button[title]').forEach(btn => {
+  if (!btn.hasAttribute('aria-label')) btn.setAttribute('aria-label', btn.title);
+});
+setTool('brush');
 init();

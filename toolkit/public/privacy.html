@@ -1,0 +1,81 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Privacy notice — Toolkit</title>
+  <link rel="icon" href="/img/toolkit.svg" type="image/svg+xml">
+  <link rel="stylesheet" href="/css/toolkit.css">
+</head>
+<body>
+  <div class="scuffs" aria-hidden="true"></div>
+  <div class="page">
+    <nav class="nav">
+      <a class="brand" href="/">
+        <svg class="logo" viewBox="0 0 40 40" xmlns="http://www.w3.org/2000/svg" aria-hidden="true">
+          <rect x="2" y="2" width="36" height="36" rx="6" fill="#ececec"/>
+          <path d="M11 13h18M20 13v15" stroke="#0e0e0e" stroke-width="4" stroke-linecap="round"/>
+        </svg>
+        TOOLKIT
+      </a>
+      <div class="nav-links">
+        <a href="/">Home</a>
+        <a href="/account">Account</a>
+      </div>
+    </nav>
+
+    <main class="doc">
+      <h1>Privacy notice</h1>
+      <p class="meta">Version <span id="privacy-version">current</span>. Plain-language summary of how your personal information is handled.</p>
+
+      <h2>Who is responsible</h2>
+      <p>This Toolkit service (Sigma, Pigment, ImageVendor and Placeholder) is run by its operator, who is accountable for the personal information described here and for answering your questions. Privacy contact: <strong id="privacy-contact">the administrator of this server</strong>.</p>
+
+      <h2>What is collected</h2>
+      <ul>
+        <li><strong>Account:</strong> your name, your email address, and your password stored only as a one-way hash (nobody, including the operator, can read it). We also record when the account was created, when you last signed in, and which version of this notice you accepted and when.</li>
+        <li><strong>Your work:</strong> the projects, paintings and images you save, including their names, thumbnails and any pictures you import into them. Placeholder converts files inside your own browser; those files are not uploaded.</li>
+        <li><strong>Security records:</strong> your IP address and browser description, kept with each signed-in session (so you can recognise and end them) and in a security log of sign-ins, failed attempts and account changes. The log never contains passwords, session tokens or the contents of your work.</li>
+        <li><strong>One cookie:</strong> a strictly necessary session cookie that keeps you signed in. There are no advertising, analytics or tracking cookies, and no third-party scripts or fonts are loaded.</li>
+      </ul>
+
+      <h2>Why it is collected</h2>
+      <p>To provide the apps you chose to use, to keep accounts secure and detect abuse, and to meet legal obligations. It is not sold, not used for advertising or profiling, and not used for any purpose unrelated to these.</p>
+
+      <h2>Who can see it</h2>
+      <p>Only people the operator has given administrative access to the server. It is not shared with other organisations, except: (a) the operator's mail service receives your address to deliver your sign-up confirmation code and any password-reset messages; (b) when you sign up, the domain part of your email (for example <em>example.org</em>, never your name or the full address) is looked up in DNS to check it can receive mail; (c) where the law requires disclosure.</p>
+
+      <h2>Where it is kept and how it is protected</h2>
+      <p>Your data is stored on the operator's server (or, in the desktop app, on your own computer). Safeguards include: passwords hashed with bcrypt; sign-in sessions that expire when idle and after a fixed maximum lifetime; HTTPS and strict browser security headers on the hosted service; limits on repeated sign-in attempts; checks on every uploaded picture; a security log whose entries are chained together so that any alteration is detectable; and, where the operator has turned it on, encryption of the stored data.</p>
+
+      <h2>How long it is kept</h2>
+      <ul>
+        <li>Account and saved work: until you delete them.</li>
+        <li>Sign-in sessions: they end after 12 hours without use or 7 days in total on the hosted service (7 and 30 days in the desktop app), or when you sign out.</li>
+        <li>Security log: 365 days unless the operator has configured a different period, then it is erased.</li>
+        <li>Backup copy: a rolling copy that is refreshed at least every 10 minutes while the service is in use and is replaced immediately when you delete your account.</li>
+        <li>Sign-up confirmation codes: 15 minutes, single use. Password-reset links: 1 hour, single use. Sign-ups never confirmed are deleted after 7 days.</li>
+      </ul>
+
+      <h2>Your choices and rights</h2>
+      <ul>
+        <li><strong>See and download</strong> everything held about you: <a href="/account">Account</a> &rarr; Download my data.</li>
+        <li><strong>Correct</strong> your name, and change your password, on the same page. You can also see and end your signed-in sessions.</li>
+        <li><strong>Delete</strong> your account on the same page: your account, every project, painting and image, and all of your sessions are erased immediately. Security-log entries (an anonymous account number, an IP address and the type of event; never your name, email or work) remain until the retention period above ends.</li>
+        <li><strong>Withdraw consent</strong> by deleting your account. Ask questions or raise a concern using the privacy contact above; you may also contact the Office of the Privacy Commissioner of Canada (priv.gc.ca).</li>
+      </ul>
+
+      <h2>If something goes wrong</h2>
+      <p>If a breach of security safeguards creates a real risk of significant harm to you, the operator will notify you and the Privacy Commissioner of Canada as the law requires, and will keep a record of the incident.</p>
+
+      <h2>Changes</h2>
+      <p>When this notice changes materially its version number changes, and each account records the version it accepted.</p>
+    </main>
+
+    <footer>
+      <div>© 2026 Toolkit.</div>
+    </footer>
+  </div>
+  <script type="module" src="/js/privacy.js"></script>
+</body>
+</html>

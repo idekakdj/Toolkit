@@ -868,6 +868,35 @@ a:hover { opacity: 0.7; }
 }
 
 /* ---- import modal ---- */
+.import-src-row {
+  display: flex;
+  gap: 6px;
+  padding: 12px 22px 0;
+  flex: 0 0 auto;
+}
+
+.import-src {
+  font-family: var(--font);
+  font-size: 0.8rem;
+  font-weight: 600;
+  padding: 5px 14px;
+  border-radius: 20px;
+  border: 1.5px solid var(--border);
+  background: transparent;
+  color: var(--mid-grey);
+  cursor: pointer;
+  transition: background 0.12s, color 0.12s, border-color 0.12s;
+}
+.import-src:hover {
+  border-color: var(--light-grey);
+  color: var(--near-black);
+}
+.import-src.active {
+  background: var(--near-black);
+  color: #fff;
+  border-color: var(--near-black);
+}
+
 #import-grid {
   display: flex;
   flex-direction: column;
@@ -996,3 +1025,37 @@ a:hover { opacity: 0.7; }
   #painting-name { max-width: 160px; }
   .tb-btn span { display: none; }
 }
+
+/* Keyboard focus remains visible across studio controls. */
+:focus-visible { outline: 2px solid var(--near-black, #1e1e1e); outline-offset: 3px; }
+button.import-item { font: inherit; color: inherit; text-align: left; width: 100%; }
+
+/* ============================================================
+   TOOL RAIL SIZING FIX
+   The 60px rail clipped tool labels ("ECTANGL") and pushed the gradient
+   controls below the fold, and the rotated 3px size slider was nearly
+   impossible to grab. Desktop rail: wider, horizontal slider with a
+   20px-tall hit area, three-column palette.
+   ============================================================ */
+@media (min-width: 701px) {
+  #toolbar { width: 88px; min-width: 88px; padding: 10px 8px; gap: 3px; }
+  .rail-sep { width: 56px; }
+  .tool-btn { width: 72px; height: 42px; }
+  .tool-btn .tool-label { font-size: 0.56rem; letter-spacing: 0.02em; white-space: nowrap; }
+  .rail-size-wrap, .rail-gradient-wrap { width: 72px; }
+  #brush-size {
+    transform: none;
+    margin: 0;
+    width: 72px;
+    height: 20px;
+    background: linear-gradient(var(--border), var(--border)) center / 100% 3px no-repeat;
+  }
+  #palette { grid-template-columns: repeat(3, 18px); gap: 5px; }
+  .grad-preview, .grad-row select { width: 72px; }
+  .grad-row input[type="range"] {
+    width: 72px;
+    height: 20px;
+    background: linear-gradient(var(--border), var(--border)) center / 100% 3px no-repeat;
+  }
+}
+.rail-size-value { font-size: 0.62rem; color: var(--mid-grey); font-variant-numeric: tabular-nums; }

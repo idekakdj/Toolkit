@@ -88,6 +88,11 @@
 
 /* ---------- controls ---------- */
 .controls { display: grid; gap: 18px; }
+#resizeControl { margin: 0; padding: 16px; border: 1px solid var(--border, #d9d9e3); border-radius: 12px; }
+#resizeControl legend { padding: 0 6px; font-weight: 600; }
+#resizeControl input[type="number"] { width: 100%; box-sizing: border-box; padding: 10px 12px; margin: 0 0 12px; border: 1px solid var(--border, #d9d9e3); border-radius: 8px; color: inherit; background: transparent; font: inherit; }
+#resizeControl small { display: block; line-height: 1.6; opacity: .8; }
+#resizeControl input:focus-visible { outline: 2px solid #2563eb; outline-offset: 2px; }
 .control label {
   display: block; font-size: 0.8rem; font-weight: 600;
   letter-spacing: 0.06em; text-transform: uppercase;
@@ -208,6 +213,7 @@ select option { background: #0b0b1c; color: var(--ink); }
 .import-dot-pigment {
   background: conic-gradient(#e0342f, #f4c20d, #43a047, #2a6fdb, #9c27b0, #e0342f);
 }
+.import-dot-imagevendor { background: linear-gradient(135deg, #0e1d3d, #c9a227); }
 
 /* ---------------- design picker overlay ---------------- */
 .di-overlay {
@@ -287,3 +293,10 @@ select option { background: #0b0b1c; color: var(--ink); }
   .panel { padding: 20px; }
   .dropzone { padding: 38px 16px; }
 }
+
+:focus-visible { outline: 3px solid var(--purple-hot, #a78bfa); outline-offset: 4px; }
+@media (prefers-reduced-motion: reduce) {
+  *, *::before, *::after { animation: none !important; transition: none !important; scroll-behavior: auto !important; }
+}
+
+.browse-btn { background: none; border: 0; padding: 0; color: inherit; font: inherit; font-weight: 700; cursor: pointer; }

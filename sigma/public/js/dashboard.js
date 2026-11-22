@@ -1,5 +1,7 @@
 // Dashboard: list, create, rename, delete and open projects.
 import { api, redirectIfSignedOut } from './api.js';
+import { initDialogs, showDialog, hideDialog } from './dialogs.js';
+initDialogs();
 
 const grid = document.getElementById('project-grid');
 const emptyState = document.getElementById('empty-state');
@@ -34,6 +36,12 @@ function render() {
 
     const thumb = document.createElement('div');
     thumb.className = 'project-thumb';
+    thumb.tabIndex = 0;
+    thumb.setAttribute('role', 'link');
+    thumb.setAttribute('aria-label', 'Open ' + p.name);
+    thumb.addEventListener('keydown', e => {
+      if (e.key === 'Enter') window.location.href = `/sigma/editor/${p.id}`;
+    });
     if (p.thumbnail) {
       const img = document.createElement('img');
       img.src = p.thumbnail;
@@ -89,7 +97,7 @@ function openCreate() {
   projectModalSave.textContent = 'Create';
   projectNameInput.value = '';
   projectModalError.classList.remove('show');
-  projectModal.classList.add('show');
+  showDialog(projectModal);
   projectNameInput.focus();
 }
 
@@ -99,7 +107,7 @@ function openRename(p) {
   projectModalSave.textContent = 'Save';
   projectNameInput.value = p.name;
   projectModalError.classList.remove('show');
-  projectModal.classList.add('show');
+  showDialog(projectModal);
   projectNameInput.focus();
   projectNameInput.select();
 }
@@ -107,17 +115,18 @@ function openRename(p) {
 function openDelete(p) {
   deletingId = p.id;
   deleteModalText.textContent = `"${p.name}" and its contents will be permanently deleted.`;
-  deleteModal.classList.add('show');
+  showDialog(deleteModal);
 }
 
 async function saveProject() {
+  if (projectModalSave.disabled) return;
   const name = projectNameInput.value.trim();
   if (!name) return showModalError('Please enter a name.');
   projectModalSave.disabled = true;
   try {
     if (renamingId) {
       await api(`/api/projects/${renamingId}`, { method: 'PUT', body: { name } });
-      projectModal.classList.remove('show');
+      hideDialog(projectModal);
       await load();
     } else {
       const data = await api('/api/projects', { method: 'POST', body: { name } });
@@ -137,29 +146,32 @@ async function load() {
     projects = list.projects;
     render();
   } catch (err) {
-    redirectIfSignedOut(err);
+    if (!redirectIfSignedOut(err)) countEl.textContent = 'Could not load projects: ' + err.message;
   }
 }
 
 document.getElementById('new-project-btn').addEventListener('click', openCreate);
 projectModalSave.addEventListener('click', saveProject);
 projectNameInput.addEventListener('keydown', (e) => { if (e.key === 'Enter') saveProject(); });
-document.getElementById('project-modal-cancel').addEventListener('click', () => projectModal.classList.remove('show'));
+document.getElementById('project-modal-cancel').addEventListener('click', () => hideDialog(projectModal));
 
 document.getElementById('delete-modal-cancel').addEventListener('click', () => {
   deletingId = null;
-  deleteModal.classList.remove('show');
+  hideDialog(deleteModal);
 });
 document.getElementById('delete-modal-confirm').addEventListener('click', async () => {
-  if (!deletingId) return;
+  const confirm = document.getElementById('delete-modal-confirm');
+  if (!deletingId || confirm.disabled) return;
+  const id = deletingId;
+  confirm.disabled = true;
   try {
-    await api(`/api/projects/${deletingId}`, { method: 'DELETE' });
-    deleteModal.classList.remove('show');
+    await api(`/api/projects/${id}`, { method: 'DELETE' });
+    hideDialog(deleteModal);
     deletingId = null;
     await load();
   } catch (err) {
-    redirectIfSignedOut(err);
-  }
+    if (!redirectIfSignedOut(err)) alert('Could not delete project: ' + err.message);
+  } finally { confirm.disabled = false; }
 });
 
 document.getElementById('logout-btn').addEventListener('click', async () => {
@@ -169,7 +181,7 @@ document.getElementById('logout-btn').addEventListener('click', async () => {
 
 for (const backdrop of [projectModal, deleteModal]) {
   backdrop.addEventListener('click', (e) => {
-    if (e.target === backdrop) backdrop.classList.remove('show');
+    if (e.target === backdrop) hideDialog(backdrop);
   });
 }
 
