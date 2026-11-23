@@ -25,13 +25,14 @@
           <div class="field">
             <label for="password">New password</label>
             <input id="password" type="password" autocomplete="new-password" maxlength="128" required>
-            <p class="hint">At least 12 characters. Longer is better; avoid common words, your name and your email.</p>
+            <p class="hint">Avoid common words, your name and your email.</p>
           </div>
           <div class="field">
             <label for="confirm">Repeat new password</label>
             <input id="confirm" type="password" autocomplete="new-password" maxlength="128" required>
+            <p class="hint" id="confirm-hint" aria-live="polite"></p>
           </div>
-          <button class="btn" id="submit-btn" type="submit" style="width:100%">Change password</button>
+          <button class="btn btn-block" id="submit-btn" type="submit">Change password</button>
         </form>
         <p class="auth-links" id="next" hidden><a class="btn" href="/auth">Sign in</a></p>
       </div>

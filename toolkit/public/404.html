@@ -4,17 +4,78 @@
   <meta charset="UTF-8">
   <meta name="viewport" content="width=device-width, initial-scale=1.0">
   <title>Not found — Toolkit</title>
+  <meta name="robots" content="noindex">
   <link rel="icon" href="/img/toolkit.svg" type="image/svg+xml">
   <link rel="stylesheet" href="/css/toolkit.css">
+  <link rel="stylesheet" href="/css/404.css">
 </head>
-<body>
+<body class="nf">
   <div class="scuffs" aria-hidden="true"></div>
-  <div class="center-page">
-    <div>
-      <h1>404</h1>
-      <p>That drawer's empty. Someone borrowed the page and never brought it back.</p>
-      <a class="btn" href="/">Back to the bench</a>
-    </div>
+
+  <div class="page nf-page">
+    <nav class="nav" aria-label="Main">
+      <a class="brand" href="/">
+        <svg class="logo" viewBox="0 0 40 40" xmlns="http://www.w3.org/2000/svg" aria-hidden="true">
+          <rect x="2" y="2" width="36" height="36" rx="6" fill="#ececec"/>
+          <path d="M11 13h18M20 13v15" stroke="#0e0e0e" stroke-width="4" stroke-linecap="round"/>
+          <path d="M8 31l4-3M32 9l-3 2.5" stroke="#0e0e0e" stroke-width="1.4" stroke-linecap="round" opacity="0.45"/>
+        </svg>
+        TOOLKIT
+      </a>
+      <div class="nav-links">
+        <a class="btn btn-sm" href="/auth">Sign in</a>
+      </div>
+    </nav>
+
+    <main class="nf-main">
+      <header class="nf-hero">
+        <span class="nf-stamp">error 404 · drawer empty</span>
+        <h1 class="nf-title">404</h1>
+        <p class="nf-lead">That drawer's empty. Someone borrowed the page and never brought it back.</p>
+        <div class="nf-actions">
+          <a class="btn" href="/">Back to the bench</a>
+          <a class="btn btn-ghost" href="/auth">Sign in</a>
+        </div>
+      </header>
+
+      <section class="nf-tools" aria-labelledby="nf-tools-h">
+        <h2 id="nf-tools-h" class="nf-label">Try one of the tools</h2>
+        <ul class="nf-grid">
+          <li>
+            <a class="nf-card" href="/sigma">
+              <span class="nf-tape" aria-hidden="true"></span>
+              <span class="nf-name">Sigma</span>
+              <span class="nf-desc">Design studio: vectors, layers, text, clipart.</span>
+            </a>
+          </li>
+          <li>
+            <a class="nf-card" href="/pigment">
+              <span class="nf-tape" aria-hidden="true"></span>
+              <span class="nf-name">Pigment</span>
+              <span class="nf-desc">Paint and coloring with brushes and fill-in outlines.</span>
+            </a>
+          </li>
+          <li>
+            <a class="nf-card" href="/imagevendor">
+              <span class="nf-tape" aria-hidden="true"></span>
+              <span class="nf-name">ImageVendor</span>
+              <span class="nf-desc">Layered photo editor with selections and filters.</span>
+            </a>
+          </li>
+          <li>
+            <a class="nf-card" href="/placeholder/">
+              <span class="nf-tape" aria-hidden="true"></span>
+              <span class="nf-name">Placeholder</span>
+              <span class="nf-desc">File converter for images, audio, documents and data.</span>
+            </a>
+          </li>
+        </ul>
+      </section>
+    </main>
+
+    <footer>
+      <div>© 2026 Toolkit · <a href="/privacy">Privacy policy</a> · <a href="/terms">Terms of service</a></div>
+    </footer>
   </div>
 </body>
 </html>

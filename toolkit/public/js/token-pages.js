@@ -3,6 +3,7 @@
 // server, never appear in access logs and are not leaked through the Referer header.
 // It is removed from the address bar immediately and sent only in a POST body.
 import { api } from './api.js';
+import { attachMeter, attachMatch, weakReason } from './password-strength.js';
 
 const mode = document.querySelector('script[data-mode]')?.dataset.mode;
 const $ = id => document.getElementById(id);
@@ -30,10 +31,14 @@ if (!token) {
   const form = $('reset-form'); if (form) form.hidden = true;
   $('next').hidden = false;
 } else if (mode === 'reset') {
+  attachMeter($('password'));
+  attachMatch($('password'), $('confirm'), $('confirm-hint'));
   $('reset-form').addEventListener('submit', async e => {
     e.preventDefault();
     $('error').classList.remove('show');
     const password = $('password').value;
+    const weak = weakReason(password);
+    if (weak) return fail(weak);
     if (password !== $('confirm').value) return fail('The two passwords do not match.');
     $('submit-btn').disabled = true;
     try {

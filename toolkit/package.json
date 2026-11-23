@@ -1,6 +1,6 @@
 {
   "name": "toolkit",
-  "version": "1.2.0",
+  "version": "1.3.0",
   "description": "Toolkit: Sigma, Pigment, ImageVendor and Placeholder with shared authentication.",
   "author": "Toolkit",
   "main": "server/index.js",
@@ -10,6 +10,7 @@
     "start:hosted": "node server/hosted.cjs",
     "dev": "node server/start.cjs",
     "test": "node test/run-all.cjs",
+    "licenses": "node scripts/license-report.cjs",
     "test:browser": "node test/browser-smoke.cjs",
     "desktop": "electron desktop/main.cjs",
     "build:desktop": "electron-builder --config desktop/builder.cjs --win nsis --x64 --publish never",

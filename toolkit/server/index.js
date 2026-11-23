@@ -9,8 +9,9 @@ const path = require('path');
 const express = require('express');
 const helmet = require('helmet');
 const {
-  apiLimiter, writeLimiter, pageLimiter, csrfProtect, requireAuth, getSessionUser, safeNextPath,
+  apiLimiter, writeLimiter, pageLimiter, csrfProtect, requireAuth, getSessionUser, safeNextPath, mfaSetupPending,
 } = require('./security');
+const mfa = require('./mfa');
 const authRoutes = require('./auth');
 const accountRoutes = require('./account');
 const projectRoutes = require('./projects');
@@ -42,7 +43,9 @@ const strictCsp = helmet.contentSecurityPolicy({
   directives: {
     defaultSrc: ["'self'"],
     scriptSrc: ["'self'"],
-    styleSrc: ["'self'", "'unsafe-inline'"], // inline style attrs on SVG nodes
+    // No 'unsafe-inline': pages and apps use stylesheets and classes; scripts set only
+    // individual CSSOM properties (el.style.x = ...), which CSP allows.
+    styleSrc: ["'self'"],
     imgSrc: ["'self'", 'data:', 'blob:'],
     mediaSrc: ["'self'", 'blob:'],           // video/audio decoding for conversions
     connectSrc: ["'self'"],
@@ -87,9 +90,12 @@ app.use('/api/images', requireAuth, json('27mb'), imageRoutes);
 app.use((req, res, next) => (req.path.startsWith('/api/') ? next() : pageLimiter(req, res, next)));
 
 function gate(req, res, file, dir) {
-  if (!getSessionUser(req)) {
+  const user = getSessionUser(req);
+  if (!user) {
     return res.redirect('/auth?next=' + encodeURIComponent(safeNextPath(req.originalUrl)));
   }
+  // TOOLKIT_REQUIRE_MFA=1: until two-step sign-in is set up, only the account page opens.
+  if (file !== 'account.html' && mfaSetupPending(req, user)) return res.redirect('/account?setup-mfa=1');
   // Signed-in pages must never be kept by a shared browser's cache.
   res.set('Cache-Control', 'no-store');
   res.sendFile(path.join(dir, file));
@@ -114,10 +120,13 @@ function assets(dir, options = {}) {
 // ---------- Toolkit shell ----------
 app.get('/', (req, res) => res.sendFile(path.join(TOOLKIT_PUBLIC, 'index.html')));
 app.get('/auth', (req, res) => {
-  if (getSessionUser(req)) return res.redirect(safeNextPath(req.query.next));
+  // During a two-step challenge the person may still hold an older session; keep the page open for the code.
+  const challenged = req.query.mfa === '1' && mfa.hasChallengeCookie(req);
+  if (!challenged && getSessionUser(req)) return res.redirect(safeNextPath(req.query.next));
   res.sendFile(path.join(TOOLKIT_PUBLIC, 'auth.html'));
 });
 app.get('/privacy', (req, res) => res.sendFile(path.join(TOOLKIT_PUBLIC, 'privacy.html')));
+app.get('/terms', (req, res) => res.sendFile(path.join(TOOLKIT_PUBLIC, 'terms.html')));
 app.get('/reset', (req, res) => res.sendFile(path.join(TOOLKIT_PUBLIC, 'reset.html')));
 app.get('/account', (req, res) => gate(req, res, 'account.html', TOOLKIT_PUBLIC));
 

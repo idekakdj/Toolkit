@@ -8,7 +8,10 @@ function validate(bytes) {
   if (!Array.isArray(db.users) || !Array.isArray(db.projects) || !db.sessions || typeof db.sessions !== 'object') throw new Error('Invalid source database');
   const owners = new Set(), emails = new Set();
   for (const user of db.users) {
-    if (!user.id || typeof user.email !== 'string' || typeof user.passwordHash !== 'string' || !/^\$2[aby]\$\d\d\$/.test(user.passwordHash) || owners.has(user.id) || emails.has(user.email)) throw new Error('Invalid or duplicate account');
+    // Accounts created with Google have no password hash, only a Google subject id.
+    const credential = typeof user.passwordHash === 'string' ? /^\$2[aby]\$\d\d\$/.test(user.passwordHash)
+      : user.passwordHash == null && typeof user.googleSub === 'string' && user.googleSub.length > 0;
+    if (!user.id || typeof user.email !== 'string' || !credential || owners.has(user.id) || emails.has(user.email)) throw new Error('Invalid or duplicate account');
     owners.add(user.id); emails.add(user.email);
   }
   for (const group of ['projects', 'paintings', 'images']) {

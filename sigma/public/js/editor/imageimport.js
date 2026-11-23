@@ -67,7 +67,7 @@ async function loadTab(tab) {
       const img = document.createElement('img');
       img.src = item.thumbnail;
       img.alt = '';
-      img.style.cssText = 'width:52px;height:52px;object-fit:contain;display:block;margin:0 auto 6px;';
+      img.className = 'ii-thumb';
       btn.append(img);
     }
     const label = document.createElement('span');

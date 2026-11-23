@@ -30,12 +30,12 @@ async function launch() {
       const res = await fetch(url, { method, headers: { 'Content-Type': 'application/json', 'X-Requested-With': 'desktop-test' }, body: body === undefined ? undefined : JSON.stringify(body) });
       return { status: res.status, data: await res.json() };
     }, { url, method, body });
-    const registered = await api('/api/auth/register', 'POST', { name: 'Desktop test', email: 'desktop@example.com', password: 'violet-harbor-lamp-42', acceptTerms: true });
+    const registered = await api('/api/auth/register', 'POST', { name: 'Desktop test', email: 'desktop@example.com', password: 'Violet-Harbor-Lamp-42', acceptTerms: true });
     assert.equal(registered.status, 201);
     assert.equal((await api('/api/auth/me')).status, 200, 'Production desktop auth cookie works');
     const webLogin = await fetch(origin + '/api/auth/login', { method: 'POST',
       headers: { 'Content-Type': 'application/json', 'X-Requested-With': 'web-test' },
-      body: JSON.stringify({ email: 'desktop@example.com', password: 'violet-harbor-lamp-42' }) });
+      body: JSON.stringify({ email: 'desktop@example.com', password: 'Violet-Harbor-Lamp-42' }) });
     assert.equal(webLogin.status, 200, 'Desktop account works in browser session');
     const webCookie = webLogin.headers.get('set-cookie').split(';')[0];
     for (const url of ['/sigma/dashboard', '/pigment', '/imagevendor', '/placeholder/convert.html']) {

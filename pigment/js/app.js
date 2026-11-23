@@ -1034,7 +1034,7 @@ function populateGalleryGrid(list) {
   const grid = document.getElementById('gallery-grid');
   grid.innerHTML = '';
   if (list.length === 0) {
-    grid.innerHTML = '<p style="opacity:.6;padding:1rem;">No paintings yet.</p>';
+    grid.innerHTML = '<p class="grid-msg">No paintings yet.</p>';
     return;
   }
   for (const p of list) {

@@ -10,6 +10,7 @@
 //   delete <email> --yes          erase the account, its documents and sessions, and the backup copy
 //   set-email <old> <new> --yes   correct an address (validated, must be unused); signs the user out
 //   revoke-sessions <email>       sign one account out everywhere
+//   reset-mfa <email> --yes       remove two-step sign-in (lost phone and recovery codes); signs the user out
 //
 // STOP THE SERVICE FIRST. The server keeps the database in memory and would overwrite
 // changes made here; this tool refuses to run while the server's lock file exists.
@@ -46,14 +47,15 @@ switch (command) {
   case 'list': {
     for (const u of db.users) {
       console.log([u.id, u.email, new Date(u.createdAt).toISOString().slice(0, 10), u.emailVerified === false ? 'unverified' : 'ok',
-        COLLECTIONS.map(c => db[c].filter(r => r.ownerId === u.id).length).join('/')].join('\t'));
+        COLLECTIONS.map(c => db[c].filter(r => r.ownerId === u.id).length).join('/'), u.mfa && u.mfa.enabled ? 'mfa-on' : 'mfa-off'].join('\t'));
     }
-    console.log(`\n${db.users.length} account(s). Columns: id, email, created, email status, projects/paintings/images`);
+    console.log(`\n${db.users.length} account(s). Columns: id, email, created, email status, projects/paintings/images, two-step sign-in`);
     break;
   }
   case 'export': {
     const u = find(args[0]);
-    const { passwordHash, failedLogins, lockedUntil, verify, reset, ...account } = u;
+    const { passwordHash, failedLogins, lockedUntil, verify, reset, mfa, mfaPending, ...account } = u;
+    account.mfa = { enabled: !!(mfa && mfa.enabled), enrolledAt: (mfa && mfa.enrolledAt) || null };   // never the secret or recovery hashes
     const out = { exportedAt: new Date().toISOString(), account, activity: eventsFor(u.id) };
     for (const c of COLLECTIONS) out[c] = db[c].filter(r => r.ownerId === u.id);
     const text = JSON.stringify(out, null, 2);
@@ -97,8 +99,22 @@ switch (command) {
     console.log(`Signed ${u.email} out of ${keys.length} session(s).`);
     break;
   }
+  case 'reset-mfa': {
+    const u = find(args[0]);
+    const keys = sessionsOf(u.id);
+    if (!flag) {
+      console.error(`This removes two-step sign-in from ${u.email} (${u.mfa && u.mfa.enabled ? 'currently on' : 'currently off'}) and signs them out of ${keys.length} session(s). Verify the owner out of band, then re-run with --yes.`);
+      process.exit(1);
+    }
+    delete u.mfa; delete u.mfaPending;
+    for (const k of keys) delete db.sessions[k];
+    audit('admin.reset-mfa', { userId: u.id, detail: { count: keys.length, by: 'admin-cli' } });
+    save(); done();
+    console.log(`Two-step sign-in removed for ${u.email}; signed out of ${keys.length} session(s). They can sign in with their password and set it up again.`);
+    break;
+  }
   default:
-    console.error('Usage: node scripts/admin.cjs list | export <email> [file] | delete <email> --yes | set-email <old> <new> --yes | revoke-sessions <email>');
+    console.error('Usage: node scripts/admin.cjs list | export <email> [file] | delete <email> --yes | set-email <old> <new> --yes | revoke-sessions <email> | reset-mfa <email> --yes');
     process.exit(command ? 1 : 0);
 }
 process.exit(0);

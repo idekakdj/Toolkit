@@ -4,7 +4,7 @@
     {
       "name": "toolkit",
       "runtimeExecutable": "node",
-      "runtimeArgs": ["toolkit/server/index.js"],
+      "runtimeArgs": ["toolkit/server/start.cjs"],
       "port": 4310
     }
   ]

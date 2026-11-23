@@ -46,7 +46,7 @@ let counter = 0;
 async function register(extra = {}, { keepLimits = false } = {}) {
   if (!keepLimits) resetLimits();
   const n = ++counter;
-  const account = { name: 'Sec Tester', email: `sec${n}@example.com`, password: 'violet-harbor-lamp-42', acceptTerms: true, ...extra };
+  const account = { name: 'Sec Tester', email: `sec${n}@example.com`, password: 'Violet-Harbor-Lamp-42', acceptTerms: true, ...extra };
   const r = await call('/api/auth/register', { method: 'POST', body: account });
   const cookie = r.res.headers.get('set-cookie') ? r.res.headers.get('set-cookie').split(';')[0] : null;
   return { ...r, account, cookie };
@@ -112,17 +112,148 @@ test('registration enforces email validity, consent and password policy', async 
 
 // ---------------------------------------------------------------- passwords
 test('password policy: length, 72-byte bcrypt limit, common/derived passwords', () => {
-  assert.equal(checkPassword('violet-harbor-lamp-42', { email: 'a@example.com', name: 'A' }), null);
-  assert.match(checkPassword('short1!'), /at least 12/);
+  assert.equal(checkPassword('Violet-Harbor-Lamp-42', { email: 'a@example.com', name: 'A' }), null);
+  assert.match(checkPassword('short1!'), /at least 10/);
   assert.match(checkPassword('a'.repeat(73)), /too long|repetitive/);
   assert.match(checkPassword('é'.repeat(40)), /too long|repetitive/);                       // 80 bytes
   assert.equal(checkPassword('Tr0ub4dor&3-horse-battery', {}), null);
   for (const weak of ['password1234', 'Password1234!', 'qwertyuiop12', '123456789012', 'aaaaaaaaaaaa', 'abcdefghijkl', 'iloveyou1234', 'letmein12345']) {
     assert.ok(checkPassword(weak), `should reject ${weak}`);
   }
-  assert.match(checkPassword('jessica-rocks-2024', { email: 'jessica@example.com' }), /email/);
-  assert.match(checkPassword('my-name-is-alexander', { name: 'Alexander Hamilton' }), /name/);
+  assert.match(checkPassword('Jessica-Rocks-2024', { email: 'jessica@example.com' }), /email/);
+  assert.match(checkPassword('My-Name-Is-Alexander-1', { name: 'Alexander Hamilton' }), /name/);
   assert.ok(checkPassword('x'.repeat(12) + '\u0000'));
+});
+
+test('password policy: "Strong" means 10+ characters with a capital letter, a number and a symbol', async () => {
+  assert.equal(checkPassword('Kite!Pond7'), null, 'exactly 10 characters meeting every rule');
+  assert.match(checkPassword('Kite!Pond'), /at least 10/);
+  assert.match(checkPassword('violet-harbor-lamp-42'), /capital/);
+  assert.match(checkPassword('Violet-Harbor-Lamp'), /number/);
+  assert.match(checkPassword('VioletHarbor42'), /symbol/);
+  assert.match(checkPassword('Violet Harbor 42'), /symbol/, 'a space is not a symbol');
+  // The browser meter uses the same rules, so it can never call a refused password "Strong".
+  // (package.json is CommonJS, so the browser's ES module is loaded from its source.)
+  const source = fs.readFileSync(path.join(__dirname, '..', 'public', 'js', 'password-strength.js'), 'utf8');
+  const { assess, weakReason } = await import('data:text/javascript,' + encodeURIComponent(source));
+  for (const p of ['Kite!Pond7', 'Kite!Pond', 'violet-harbor-lamp-42', 'Violet-Harbor-Lamp', 'VioletHarbor42', 'Violet Harbor 42', 'Tr0ub4dor&3-horse-battery', 'short1!']) {
+    const server = checkPassword(p);
+    const meterRefuses = !!weakReason(p);
+    if (meterRefuses) assert.ok(server, `server must refuse what the meter refuses: ${p}`);
+    if (assess(p).strong) assert.ok(!server || !/at least|capital|number|symbol/.test(server), `server agrees on character rules: ${p}`);
+  }
+  assert.equal(assess('Kite!Pond7').label, 'Strong');
+  assert.equal(assess('kitepond').score, 0);
+  assert.equal(assess('Kitepond').score, 1);
+});
+
+// ---------------------------------------------------------------- email providers
+test('sign-up addresses must be real mailboxes at established providers', async () => {
+  const { checkSignupAddress } = require('../server/email-check');
+  const err = code => Object.assign(new Error(code), { code });
+  const dns = (mx, a4 = err('ENODATA')) => ({
+    resolveMx: async () => { if (mx instanceof Error) throw mx; return mx.map(exchange => ({ exchange, priority: 10 })); },
+    resolve4: async () => { if (a4 instanceof Error) throw a4; return a4; },
+    resolve6: async () => { throw err('ENODATA'); },
+  });
+  const check = (email, mx, extra = {}) => checkSignupAddress(normalizeEmail(email), { resolver: dns(mx), dnsEnabled: true, strict: true, ...extra });
+  // Well-known providers and their country editions.
+  assert.equal((await check('ann@gmail.com', ['gmail-smtp-in.l.google.com'])).ok, true);
+  assert.equal((await check('ann@hotmail.co.uk', ['eur.olc.protection.outlook.com'])).ok, true);
+  assert.equal((await check('ann@proton.me', ['mail.protonmail.ch'])).ok, true);
+  // Custom domains whose mail is run by an established host (Workspace, Microsoft 365, Zoho).
+  assert.equal((await check('ann@acme-widgets-test.com', ['aspmx.l.google.com'])).ok, true);
+  assert.equal((await check('ann@contoso-test.com', ['contoso-test-com.mail.protection.outlook.com.'])).ok, true);
+  assert.equal((await check('ann@zoho-shop-test.com', ['mx.zoho.com'])).ok, true);
+  // Schools and governments.
+  assert.equal((await check('ann@uni-test.edu', ['mx.uni-test.edu'])).ok, true);
+  assert.equal((await check('ann@dept.cam-test.ac.uk', ['mx.cam-test.ac.uk'])).ok, true);
+  // Disposable inboxes, by domain or by where their mail goes.
+  for (const email of ['ann@mailinator.com', 'ann@yopmail.com', 'ann@inbox.guerrillamail.com', 'ann@10minutemail.com']) {
+    const r = await check(email, ['mx.example.net']);
+    assert.equal(r.code, 'disposable', email);
+  }
+  assert.equal((await check('ann@burner-test.com', ['mail.mailinator.com'])).code, 'disposable');
+  assert.equal((await check('ann@burner2-test.com', ['mail.mailinator.com'], { strict: false })).code, 'disposable', 'refused even when the provider list is off');
+  // Typos of the big providers come back with a fix.
+  const typo = await check('Ann.Lee@gmial.com', []);
+  assert.equal(typo.code, 'typo');
+  assert.equal(typo.suggestion, 'ann.lee@gmail.com');
+  assert.match(typo.reason, /did you mean ann\.lee@gmail\.com/);
+  assert.equal((await check('ann@hotmail.cm', [])).suggestion, 'ann@hotmail.com');
+  // Deliverable but not run by a recognised provider.
+  assert.equal((await check('ann@selfhosted-test.com', ['mail.selfhosted-test.com'])).code, 'unrecognised');
+  assert.equal((await check('ann@aonly-test.com', err('ENODATA'), { resolver: dns(err('ENODATA'), ['192.0.2.7']) })).code, 'unrecognised');
+  assert.equal((await check('ann@selfhosted2-test.com', ['mail.selfhosted2-test.com'], { strict: false })).ok, true, 'TOOLKIT_EMAIL_PROVIDER_CHECK=off accepts it');
+  // Cannot receive mail at all.
+  assert.equal((await check('ann@nowhere-test.com', err('ENOTFOUND'), { resolver: dns(err('ENOTFOUND'), err('ENOTFOUND')) })).code, 'undeliverable');
+  // A DNS outage never blocks: the emailed code is still the real proof.
+  assert.equal((await check('ann@offline-test.com', err('ETIMEOUT'))).ok, true);
+  assert.equal((await check('ann@nodns-test.com', [], { dnsEnabled: false })).ok, true);
+});
+
+test('registration refuses disposable and mistyped addresses and checks the repeated password', async () => {
+  resetLimits();
+  const disposable = await register({ email: 'someone@mailinator.com' });
+  assert.equal(disposable.status, 400);
+  assert.equal(disposable.data.code, 'email_disposable');
+  assert.equal(disposable.data.field, 'email');
+  const typo = await register({ email: 'someone@gmial.com' });
+  assert.equal(typo.status, 400);
+  assert.equal(typo.data.suggestion, 'someone@gmail.com');
+  const mismatch = await register({ confirmPassword: 'Violet-Harbor-Lamp-43' });
+  assert.equal(mismatch.status, 400);
+  assert.equal(mismatch.data.field, 'confirm');
+  assert.equal((await register({ confirmPassword: 'Violet-Harbor-Lamp-42' })).status, 201);
+});
+
+test('fixing typos never uses up the sign-up limit; only real sign-ups count', async () => {
+  resetLimits();
+  for (let i = 0; i < 15; i++) {
+    assert.equal((await register({ password: 'weak' }, { keepLimits: true })).status, 400, 'validation failures are not throttled');
+  }
+  assert.equal((await register({}, { keepLimits: true })).status, 201);
+});
+
+test('logins use the same address normalisation as sign-up (internationalised domains)', async () => {
+  resetLimits();
+  const idn = 'idn@b' + String.fromCharCode(0xfc) + 'cher.de';        // the Unicode spelling of xn--bcher-kva.de
+  const r = await register({ email: idn });
+  assert.equal(r.status, 201);
+  assert.ok(db.users.some(u => u.email === 'idn@xn--bcher-kva.de'), 'stored in punycode');
+  const login = await call('/api/auth/login', { method: 'POST', body: { email: idn.toUpperCase().replace('XN--', 'xn--'), password: r.account.password } });
+  assert.equal(login.status, 200, 'the Unicode spelling signs in');
+});
+
+// ---------------------------------------------------------------- secrets
+test('secrets in toolkit/.env are never committed, packaged or served', async () => {
+  const repo = path.join(__dirname, '..', '..');
+  const git = spawnSync('git', ['ls-files'], { cwd: repo, encoding: 'utf8' });
+  if (git.status === 0) {
+    const envFiles = git.stdout.split('\n').filter(f => /(^|\/)(\.env(\.[^/]*)?|[^/]+\.env)$/.test(f) && !/\.env\.example$|toolkit\.env\.example$/.test(f));
+    assert.deepEqual(envFiles, [], 'no .env file is tracked by git');
+    assert.equal(spawnSync('git', ['check-ignore', '-q', 'toolkit/.env'], { cwd: repo }).status, 0, 'toolkit/.env is git-ignored');
+  }
+  const builder = require('../desktop/builder.cjs');
+  assert.ok(!JSON.stringify(builder.files).includes('.env'), 'the desktop installer does not pack .env');
+  assert.ok(!fs.existsSync(path.join(__dirname, '..', 'public', '.env')), 'nothing secret sits in a served folder');
+  for (const p of ['/.env', '/toolkit/.env', '/%2e%2e/.env', '/sigma/.env', '/pigment/.env', '/css/%2e%2e/%2e%2e/.env', '/.env.example']) {
+    const r = await call(p);
+    assert.notEqual(r.status, 200, p + ' is not served');
+  }
+  // The loader never overrides the real environment and skips empty values.
+  const { loadEnvFile } = require('../server/env-file');
+  const file = path.join(temp, 'test.env');
+  fs.writeFileSync(file, 'TOOLKIT_TEST_A=from-file\nTOOLKIT_TEST_B=from-file\nTOOLKIT_TEST_C=\n# comment\n');
+  process.env.TOOLKIT_TEST_B = 'from-env';
+  try {
+    const loaded = loadEnvFile(file);
+    assert.equal(loaded.loaded, true);
+    assert.equal(process.env.TOOLKIT_TEST_A, 'from-file');
+    assert.equal(process.env.TOOLKIT_TEST_B, 'from-env');
+    assert.equal(process.env.TOOLKIT_TEST_C, undefined);
+    assert.equal(loadEnvFile(path.join(temp, 'missing.env')).loaded, false);
+  } finally { for (const k of ['TOOLKIT_TEST_A', 'TOOLKIT_TEST_B', 'TOOLKIT_TEST_C']) delete process.env[k]; }
 });
 
 test('a password is verified in full: bytes beyond bcrypt\'s 72-byte limit can no longer be ignored', async () => {
@@ -216,15 +347,15 @@ test('account: password change revokes other sessions; export and erasure work',
   const otherCookie = second.res.headers.get('set-cookie').split(';')[0];
   assert.equal((await call('/api/account/sessions', { cookie: a.cookie })).data.sessions.length, 2);
   // Wrong current password is refused; new password must satisfy the policy.
-  assert.equal((await call('/api/account/password', { method: 'POST', cookie: a.cookie, body: { currentPassword: 'nope-nope-nope', newPassword: 'cobalt-meadow-seventeen' } })).status, 403);
+  assert.equal((await call('/api/account/password', { method: 'POST', cookie: a.cookie, body: { currentPassword: 'nope-nope-nope', newPassword: 'Cobalt-Meadow-17' } })).status, 403);
   assert.equal((await call('/api/account/password', { method: 'POST', cookie: a.cookie, body: { currentPassword: a.account.password, newPassword: 'short' } })).status, 400);
   assert.equal((await call('/api/account/password', { method: 'POST', cookie: a.cookie, body: { currentPassword: a.account.password, newPassword: a.account.password } })).status, 400);
-  const changed = await call('/api/account/password', { method: 'POST', cookie: a.cookie, body: { currentPassword: a.account.password, newPassword: 'cobalt-meadow-seventeen' } });
+  const changed = await call('/api/account/password', { method: 'POST', cookie: a.cookie, body: { currentPassword: a.account.password, newPassword: 'Cobalt-Meadow-17' } });
   assert.equal(changed.status, 200); assert.equal(changed.data.otherSessionsRevoked, 1);
   assert.equal((await call('/api/auth/me', { cookie: otherCookie })).status, 401, 'other device signed out');
   assert.equal((await call('/api/auth/me', { cookie: a.cookie })).status, 200, 'current device stays signed in');
   assert.equal((await call('/api/auth/login', { method: 'POST', body: { email: a.account.email, password: a.account.password } })).status, 401, 'old password dead');
-  assert.equal((await call('/api/auth/login', { method: 'POST', body: { email: a.account.email, password: 'cobalt-meadow-seventeen' } })).status, 200);
+  assert.equal((await call('/api/auth/login', { method: 'POST', body: { email: a.account.email, password: 'Cobalt-Meadow-17' } })).status, 200);
 
   // Content, then export.
   const project = (await call('/api/projects', { method: 'POST', cookie: a.cookie, body: { name: 'Mine' } })).data.project;
@@ -244,9 +375,9 @@ test('account: password change revokes other sessions; export and erasure work',
   assert.ok(!JSON.stringify(exp2.data).includes('Not yours'));
 
   // Erasure requires re-authentication and explicit confirmation.
-  assert.equal((await call('/api/account', { method: 'DELETE', cookie: a.cookie, body: { currentPassword: 'cobalt-meadow-seventeen' } })).status, 400);
+  assert.equal((await call('/api/account', { method: 'DELETE', cookie: a.cookie, body: { currentPassword: 'Cobalt-Meadow-17' } })).status, 400);
   assert.equal((await call('/api/account', { method: 'DELETE', cookie: a.cookie, body: { currentPassword: 'wrong-password', confirm: 'DELETE' } })).status, 403);
-  const gone = await call('/api/account', { method: 'DELETE', cookie: a.cookie, body: { currentPassword: 'cobalt-meadow-seventeen', confirm: 'DELETE' } });
+  const gone = await call('/api/account', { method: 'DELETE', cookie: a.cookie, body: { currentPassword: 'Cobalt-Meadow-17', confirm: 'DELETE' } });
   assert.equal(gone.status, 200);
   assert.equal(db.users.some(u => u.email === a.account.email), false);
   assert.equal(db.projects.some(p => p.id === project.id), false);
@@ -264,9 +395,46 @@ test('internal files are not served; web assets still are', async () => {
     const r = await call(p);
     assert.ok([400, 404].includes(r.status), `${p} -> ${r.status}`);
   }
-  for (const p of ['/', '/pigment', '/imagevendor', '/sigma', '/placeholder/', '/css/toolkit.css', '/pigment/css/pigment.css']) {
+  for (const p of ['/', '/pigment', '/imagevendor', '/sigma', '/placeholder/', '/css/toolkit.css', '/pigment/css/pigment.css', '/privacy', '/terms', '/css/404.css']) {
     assert.equal((await call(p)).status, 200, p);
   }
+  // Unknown pages, at any depth, get the styled 404 page (absolute asset paths).
+  for (const p of ['/no-such-page', '/sigma/no/such/page']) {
+    const r = await call(p);
+    assert.equal(r.status, 404, p);
+    const html = await r.res.text();
+    assert.match(html, /<h1[^>]*>\s*404/);
+    assert.ok(!/(href|src)="(?!\/|#|https?:|mailto:)/.test(html), 'every link and asset path is absolute');
+  }
+});
+
+test('no app relies on inline styles, which the CSP blocks', () => {
+  const root = path.join(__dirname, '..', '..');
+  const skip = /(^|[\\/])(node_modules|vendor|tests?|dist|docs)([\\/]|$)/;
+  const files = [];
+  const walk = dir => {
+    for (const e of fs.readdirSync(dir, { withFileTypes: true })) {
+      const p = path.join(dir, e.name);
+      if (skip.test(path.relative(root, p))) continue;
+      if (e.isDirectory()) walk(p);
+      else if (/\.(html|js|mjs)$/.test(e.name) && !/regression|report/i.test(e.name)) files.push(p);
+    }
+  };
+  for (const d of ['toolkit/public', 'sigma/public', 'pigment', 'imagevendor', 'placeholder']) walk(path.join(root, d));
+  // Strings written only into downloaded files or rendered as images are not part of the page.
+  const exportOnly = new Set(['placeholder/js/converters.js', 'pigment/js/interop.js']);
+  const problems = [];
+  for (const f of files) {
+    const rel = path.relative(root, f).replace(/\\/g, '/');
+    const text = fs.readFileSync(f, 'utf8');
+    if (/\.html$/.test(f) && /\sstyle\s*=|<style[\s>]/i.test(text)) problems.push(rel + ': inline style in markup');
+    if (/\.m?js$/.test(f)) {
+      if (/\.cssText\s*=|setAttribute\(\s*['"]style['"]/.test(text)) problems.push(rel + ': cssText or style attribute set from script');
+      if (!exportOnly.has(rel) && /<[a-z][^>]*\sstyle\s*=|<style[\s>]/i.test(text)) problems.push(rel + ': inline style in generated markup');
+    }
+  }
+  assert.ok(files.length > 30, 'found the app sources');
+  assert.deepEqual(problems, []);
 });
 
 test('security headers are present on pages and API responses', async () => {
@@ -275,6 +443,10 @@ test('security headers are present on pages and API responses', async () => {
     assert.ok(page.res.headers.get(h), `missing ${h}`);
   }
   assert.match(page.res.headers.get('permissions-policy'), /camera=\(\)/);
+  const csp = page.res.headers.get('content-security-policy');
+  assert.ok(!csp.includes('unsafe-inline') && !csp.includes('unsafe-eval'), 'no unsafe-inline or unsafe-eval anywhere in the CSP: ' + csp);
+  assert.match(csp, /(^|;)\s*style-src 'self'(;|$)/, 'styles only from this origin');
+  assert.match(csp, /(^|;)\s*script-src 'self'(;|$)/, 'scripts only from this origin');
   assert.equal(page.res.headers.get('x-powered-by'), null);
   assert.equal((await call('/api/auth/me')).res.headers.get('cache-control'), 'no-store');
   const a = await register();

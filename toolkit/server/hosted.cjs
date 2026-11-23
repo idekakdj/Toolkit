@@ -1,3 +1,5 @@
+// Real environment variables (systemd EnvironmentFile) win over toolkit/.env.
+require('./env-file').loadEnvFile();
 const { startLocalRuntime } = require('./local-runtime');
 const { remoteOrigin } = require('./remote-origin');
 async function start() {
@@ -17,6 +19,7 @@ async function start() {
   if (!mail) warnings.push('Email is not configured (TOOLKIT_SMTP_URL or mail.json): NEW SIGN-UPS ARE PAUSED, because addresses cannot be confirmed, and passwords cannot be reset by email.');
   if (!contact) warnings.push('TOOLKIT_PRIVACY_CONTACT is not set: the privacy notice shows no contact for access, correction or complaint requests.');
   for (const w of warnings) console.warn('[security] ' + w);
-  require('./audit').audit('server.start', { detail: { mode: 'hosted', encryptionAtRest: encryptionEnabled, emailVerification: mail, privacyContact: contact, node: process.version } });
+  const google = require('./google').configured();
+  require('./audit').audit('server.start', { detail: { mode: 'hosted', encryptionAtRest: encryptionEnabled, emailVerification: mail, googleSignIn: google, privacyContact: contact, node: process.version } });
 }
 start().catch(err => { console.error(err.message); process.exit(1); });

@@ -43,6 +43,13 @@ function sessionCookieAttrs(maxAgeSeconds) {
   return attrs;
 }
 
+// Adds a Set-Cookie header without replacing cookies already set on this response.
+function addCookie(res, cookie) {
+  const prev = res.getHeader('Set-Cookie');
+  const list = prev === undefined ? [] : Array.isArray(prev) ? prev : [String(prev)];
+  res.setHeader('Set-Cookie', [...list, cookie]);
+}
+
 // ---------- sessions (tokens hashed at rest) ----------
 function hashToken(token) {
   return crypto.createHash('sha256').update(token).digest('hex');
@@ -59,7 +66,8 @@ function currentSessionKey(req) {
   return token && /^[0-9a-f]{64}$/.test(token) ? hashToken(token) : null;
 }
 
-function createSession(res, userId, req) {
+// method records how this session signed in ('password', 'email-code', 'google', ...).
+function createSession(res, userId, req, { method = 'password' } = {}) {
   const now = Date.now();
   // Bound the number of live sessions per account; the oldest are retired first.
   const mine = Object.keys(db.sessions).filter(k => db.sessions[k].userId === userId)
@@ -71,16 +79,21 @@ function createSession(res, userId, req) {
     userId, createdAt: now, lastSeen: now, expiresAt: now + Math.min(IDLE_MS, ABSOLUTE_MS),
     ua: req && req.headers ? String(req.headers['user-agent'] || '').slice(0, 120) : '',
     ip: req ? (req.ip || '') : '',
+    method,
   };
+  // Operator policy TOOLKIT_REQUIRE_MFA=1: a session for an account without two-step
+  // sign-in can only reach the pages needed to set it up (see mfaSetupPending).
+  const owner = db.users.find(u => u.id === userId);
+  if (process.env.TOOLKIT_REQUIRE_MFA === '1' && !(owner && owner.mfa && owner.mfa.enabled)) db.sessions[key].mfaSetup = true;
   save();
-  res.setHeader('Set-Cookie', `${SESSION_COOKIE}=${token}; ${sessionCookieAttrs(Math.floor(ABSOLUTE_MS / 1000))}`);
+  addCookie(res, `${SESSION_COOKIE}=${token}; ${sessionCookieAttrs(Math.floor(ABSOLUTE_MS / 1000))}`);
   return key;
 }
 
 function destroySession(req, res) {
   const key = currentSessionKey(req);
   if (key && db.sessions[key]) { delete db.sessions[key]; save(); }
-  res.setHeader('Set-Cookie', `${SESSION_COOKIE}=; ${sessionCookieAttrs(0)}`);
+  addCookie(res, `${SESSION_COOKIE}=; ${sessionCookieAttrs(0)}`);
 }
 
 function getSessionUser(req) {
@@ -119,7 +132,7 @@ function listSessions(userId, currentKey) {
     return {
       id: k.slice(0, 16), current: k === currentKey,
       createdAt: s.createdAt || null, lastSeen: s.lastSeen || null,
-      agent: s.ua || '', ip: s.ip || '',
+      agent: s.ua || '', ip: s.ip || '', method: s.method || 'password',
     };
   }).sort((a, b) => (b.lastSeen || 0) - (a.lastSeen || 0));
 }
@@ -144,10 +157,29 @@ setInterval(() => {
 }, 60 * 60 * 1000).unref();
 
 // ---------- middleware ----------
+// True while the operator requires two-step sign-in and this session (created before the
+// account had it) has not yet set it up. Read at request time so the setting can change.
+function mfaSetupPending(req, user) {
+  if (process.env.TOOLKIT_REQUIRE_MFA !== '1') return false;
+  if (user && user.mfa && user.mfa.enabled) return false;
+  const sess = req.sessionKey ? db.sessions[req.sessionKey] : null;
+  return !!(sess && sess.mfaSetup);
+}
+// What a session still in the set-up-two-step state may call.
+function allowedDuringMfaSetup(req) {
+  const p = String(req.originalUrl || '').split('?')[0].toLowerCase().replace(/\/+$/, '');
+  if (req.method === 'GET' && ['/api/auth/me', '/api/auth/config', '/api/account', '/api/account/sessions'].includes(p)) return true;
+  if (req.method === 'POST' && p === '/api/auth/logout') return true;
+  return p.startsWith('/api/account/mfa/');
+}
+
 function requireAuth(req, res, next) {
   const user = getSessionUser(req);
   if (!user) return res.status(401).json({ error: 'Not signed in' });
   req.user = user;
+  if (mfaSetupPending(req, user) && !allowedDuringMfaSetup(req)) {
+    return res.status(403).json({ error: 'Set up two-step sign-in to continue.', code: 'mfa_setup_required' });
+  }
   next();
 }
 
@@ -213,7 +245,16 @@ const writeLimiter = limiter('write', { message: 'Too many changes too quickly, 
 const authLimiter = limiter('auth', { message: 'Too many attempts. Try again in a few minutes.', config: { windowMs: 15 * 60 * 1000, limit: 25 } });
 // Only FAILED sign-ins count toward this one; ordinary use is never throttled.
 const loginLimiter = limiter('login', { message: 'Too many sign-in attempts. Try again in a few minutes.', config: { windowMs: 15 * 60 * 1000, limit: 10, skipSuccessfulRequests: true } });
-const registerLimiter = limiter('register', { message: 'Too many sign-ups from this network. Try again later.', config: { windowMs: 60 * 60 * 1000, limit: 10 } });
+// Only sign-ups that pass validation count: a person fixing a typo or a weak password is
+// never locked out, while every attempt that does real work (hashing, mail) still counts.
+const registerLimiter = limiter('register', { message: 'Too many sign-ups from this network. Try again later.', config: {
+  windowMs: 60 * 60 * 1000, limit: 10, skipFailedRequests: true,
+  requestWasSuccessful: (req, res) => res.statusCode !== 400 && res.statusCode !== 503,
+} });
+// Two-step verification codes: only failed attempts count.
+const mfaLimiter = limiter('mfa', { message: 'Too many attempts. Try again in a few minutes.', config: { windowMs: 15 * 60 * 1000, limit: 10, skipSuccessfulRequests: true } });
+// Google sign-in: each attempt is two requests (start + callback).
+const oauthLimiter = limiter('oauth', { message: 'Too many sign-in attempts. Try again in a few minutes.', config: { windowMs: 15 * 60 * 1000, limit: 40 } });
 // Re-authenticated, high-impact actions: password change, export, deletion.
 const sensitiveLimiter = limiter('sensitive', { message: 'Too many attempts. Try again in a few minutes.', key: req => (req.user ? 'u:' + req.user.id : ipKey(req)), config: { windowMs: 15 * 60 * 1000, limit: 10 } });
 const pageLimiter = limiter('page', { message: 'Too many requests, slow down.', config: { windowMs: 60 * 1000, limit: 600 } });
@@ -254,7 +295,7 @@ module.exports = {
   createSession, destroySession, getSessionUser, requireAuth, csrfProtect,
   currentSessionKey, revokeSessions, listSessions, revokeSessionById,
   safeNextPath, ipKey, apiLimiter, writeLimiter, authLimiter, loginLimiter,
-  registerLimiter, sensitiveLimiter, pageLimiter,
+  registerLimiter, sensitiveLimiter, pageLimiter, oauthLimiter, mfaLimiter, mfaSetupPending, parseCookies, addCookie,
   loginLocked, recordLoginFailure, recordLoginSuccess,
   validEmail, validName, validPassword, validProjectName,
   SESSION_COOKIE, IS_PROD, HOSTED,

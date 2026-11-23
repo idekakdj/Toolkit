@@ -3,6 +3,8 @@ const assert = require('node:assert/strict');
 const fs = require('node:fs'), os = require('node:os'), path = require('node:path'), http = require('node:http');
 process.env.TOOLKIT_EMAIL_DNS_CHECK = 'off'; // synthetic example.com addresses
 process.env.TOOLKIT_EMAIL_VERIFICATION = 'off'; // these suites test other features; verification has its own suite (mail.test.cjs)
+process.env.GOOGLE_CLIENT_ID = 'hosted-test.apps.googleusercontent.com'; // only to prove the desktop handoff stays off when hosted
+process.env.GOOGLE_CLIENT_SECRET = 'hosted-test-secret';
 const { startLocalRuntime } = require('../server/local-runtime');
 test('hosted devices share accounts and documents with secure cookies and conflict protection', async () => {
   const dataDir = fs.mkdtempSync(path.join(os.tmpdir(), 'toolkit-hosted-'));
@@ -18,14 +20,14 @@ test('hosted devices share accounts and documents with secure cookies and confli
         ...(cookie ? { Cookie: cookie } : {}), ...extra,
       } }, res => {
         let data = ''; res.on('data', chunk => data += chunk);
-        res.on('end', () => resolve({ status: res.statusCode, headers: res.headers, data: () => JSON.parse(data) }));
+        res.on('end', () => resolve({ status: res.statusCode, headers: res.headers, data: () => JSON.parse(data), text: () => data }));
       });
       req.on('error', reject); req.end(raw);
     });
   }
   try {
     await assert.rejects(startLocalRuntime({ dataDir, port: 0 }), /different server mode/);
-    const account = { name: 'Shared', email: 'shared@example.com', password: 'test-password-123', acceptTerms: true };
+    const account = { name: 'Shared', email: 'shared@example.com', password: 'Test-Password-123', acceptTerms: true };
     const first = await request('/api/auth/register', 'POST', account);
     assert.equal(first.status, 201);
     assert.match(first.headers['set-cookie'][0], /HttpOnly; SameSite=Strict/);
@@ -50,5 +52,14 @@ test('hosted devices share accounts and documents with secure cookies and confli
     const other = await request('/api/auth/register', 'POST', { ...account, email: 'other@example.com' });
     const c = other.headers['set-cookie'][0].split(';')[0];
     assert.deepEqual((await request('/api/projects', 'GET', undefined, c)).data().projects, []);
+    // The desktop app's Google handoff is loopback-only: on a shared server anyone could send a victim a start link.
+    const id = 'A'.repeat(43), secret = 'B'.repeat(43);
+    const begin = await request(`/api/auth/google/desktop/begin?id=${id}&secret=${secret}`);
+    assert.match(begin.text(), /google=desktop_unavailable/);
+    assert.ok(!begin.headers.location, 'no waiting page is registered');
+    assert.match((await request(`/api/auth/google/start?handoff=${id}`)).text(), /expired or was already used/);
+    const toGoogle = new URL((await request('/api/auth/google/start')).headers.location);
+    assert.equal(toGoogle.origin, 'https://accounts.google.com');
+    assert.equal(toGoogle.searchParams.get('redirect_uri'), 'https://shared.example.com/api/auth/google/callback', 'hosted web sign-in uses the public address');
   } finally { await server.close(); }
 });

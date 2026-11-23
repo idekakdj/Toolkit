@@ -54,6 +54,8 @@ async function startLocalRuntime({ dataDir = dataDirectory(), assetRoot, port = 
   if (assetRoot) process.env.TOOLKIT_ASSET_ROOT = assetRoot;
   process.env.TOOLKIT_LOCAL_ONLY = publicOrigin ? '0' : '1';
   if (publicOrigin) process.env.NODE_ENV = 'production';
+  // Email links and the Google redirect address are built from this, never from a request's Host.
+  if (publicOrigin && !process.env.TOOLKIT_PUBLIC_URL) process.env.TOOLKIT_PUBLIC_URL = publicOrigin;
   let application;
   try { application = require('./index'); } catch (err) { release(); throw err; }
   const server = http.createServer((req, res) => {

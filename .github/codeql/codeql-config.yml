@@ -1,0 +1,6 @@
+name: Toolkit CodeQL configuration
+# Vendored third-party code and build output are not ours to fix.
+paths-ignore:
+  - placeholder/vendor
+  - "**/node_modules"
+  - dist

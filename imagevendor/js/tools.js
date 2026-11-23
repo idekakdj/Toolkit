@@ -587,20 +587,11 @@ export function showTextInput(ix, iy) {
   const inp = document.createElement('input');
   inp.type = 'text';
   inp.setAttribute('aria-label', 'Text to add to image');
-  inp.style.cssText = [
-    'position:fixed',
-    `left:${screenX}px`,
-    `top:${screenY}px`,
-    `font-size:${Math.max(12, brushSize * 2)}px`,
-    "font-family:'Segoe UI',system-ui,sans-serif",
-    'background:rgba(255,255,255,0.15)',
-    'color:' + currentColor,
-    'border:1px dashed rgba(255,255,255,0.6)',
-    'outline:none',
-    'padding:2px 4px',
-    'min-width:80px',
-    'z-index:9999',
-  ].join(';');
+  inp.className = 'canvas-text-input';
+  inp.style.left = screenX + 'px';
+  inp.style.top = screenY + 'px';
+  inp.style.fontSize = Math.max(12, brushSize * 2) + 'px';
+  inp.style.color = currentColor;
 
   document.body.appendChild(inp);
   inp.focus();

@@ -27,7 +27,7 @@ async function main() {
       assert.ok(response.ok(), `${url}: ${response.status()} ${await response.text()}`);
       return response.json();
     };
-    await api('/api/auth/register', 'POST', { name: 'Browser test', email: 'browser@example.com', password: 'violet-harbor-lamp-42', acceptTerms: true });
+    await api('/api/auth/register', 'POST', { name: 'Browser test', email: 'browser@example.com', password: 'Violet-Harbor-Lamp-42', acceptTerms: true });
     for (const url of ['/', '/sigma', '/pigment', '/imagevendor', '/placeholder/']) {
       await page.goto(base + url);
       assert.ok(await page.title(), url);

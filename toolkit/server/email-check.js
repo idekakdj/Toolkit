@@ -9,8 +9,10 @@
 // The DNS check rejects domains that definitively cannot receive mail (NXDOMAIN,
 // no MX/A/AAAA, or an RFC 7505 null MX). Transient resolver problems (offline,
 // timeout, SERVFAIL) never block a signup, so the desktop app works offline.
+// checkSignupAddress() adds the provider rules from email-providers.js.
 const dns = require('node:dns').promises;
 const { domainToASCII } = require('node:url');
+const providers = require('./email-providers');
 
 const LOCAL_PART = /^[A-Za-z0-9!#$%&'*+/=?^_`{|}~-]+(?:\.[A-Za-z0-9!#$%&'*+/=?^_`{|}~-]+)*$/;
 const DOMAIN_LABEL = /^[a-z0-9](?:[a-z0-9-]{0,61}[a-z0-9])?$/;
@@ -61,11 +63,12 @@ function withTimeout(promise, ms) {
   return Promise.race([promise, timeout]).finally(() => clearTimeout(timer));
 }
 
-// Returns 'ok' | 'undeliverable' | 'unknown'. Never throws.
-async function checkDomain(domain, { resolver = dns, timeoutMs = 3000 } = {}) {
+// Returns { result: 'ok' | 'undeliverable' | 'unknown', hosts: [MX host names] }. Never throws.
+async function lookupMail(domain, { resolver = dns, timeoutMs = 3000 } = {}) {
   const hit = cache.get(domain);
-  if (hit && hit.until > Date.now()) return hit.result;
+  if (hit && hit.until > Date.now()) return { result: hit.result, hosts: hit.hosts };
   let result = 'unknown';
+  let hosts = [];
   try {
     try {
       const mx = await withTimeout(resolver.resolveMx(domain), timeoutMs);
@@ -73,6 +76,7 @@ async function checkDomain(domain, { resolver = dns, timeoutMs = 3000 } = {}) {
         // RFC 7505 null MX: the domain explicitly accepts no mail.
         const nullMx = mx.length === 1 && (mx[0].exchange === '' || mx[0].exchange === '.');
         result = nullMx ? 'undeliverable' : 'ok';
+        if (!nullMx) hosts = mx.map(r => String(r.exchange || '').toLowerCase()).filter(Boolean);
       } else result = 'fallback';
     } catch (err) {
       if (TRANSIENT.has(err && err.code)) throw err;
@@ -92,12 +96,45 @@ async function checkDomain(domain, { resolver = dns, timeoutMs = 3000 } = {}) {
   }
   if (result !== 'unknown') {
     if (cache.size >= CACHE_MAX) cache.delete(cache.keys().next().value);
-    cache.set(domain, { result, until: Date.now() + CACHE_MS });
+    cache.set(domain, { result, hosts, until: Date.now() + CACHE_MS });
   }
-  return result;
+  return { result, hosts };
+}
+
+// Returns 'ok' | 'undeliverable' | 'unknown'. Never throws.
+async function checkDomain(domain, options) {
+  return (await lookupMail(domain, options)).result;
 }
 
 // 'on' (default) or 'off'. Tests and fully air-gapped installs may disable the lookup.
 function dnsCheckEnabled() { return process.env.TOOLKIT_EMAIL_DNS_CHECK !== 'off'; }
+// 'on' (default): only established providers. 'off': any deliverable domain (disposable
+// inboxes and typos are still refused).
+function providerCheckEnabled() { return process.env.TOOLKIT_EMAIL_PROVIDER_CHECK !== 'off'; }
 
-module.exports = { normalizeEmail, checkDomain, dnsCheckEnabled, RESERVED_TLDS };
+const DISPOSABLE_REASON = 'Temporary or disposable email addresses cannot be used. Use your regular email address.';
+const UNRECOGNISED_REASON = 'Use an address from an established email provider (such as Gmail, Outlook, iCloud, Yahoo or Proton), ' +
+  'or a work or school address hosted by one.';
+
+// Decides whether a syntactically valid address may be used for a new email/password
+// account. Returns { ok: true } or { ok: false, code, reason }. Never throws.
+//   undeliverable: the domain cannot receive mail at all (typo, made-up or null-MX domain)
+//   disposable:    a temporary-inbox service
+//   typo:          a misspelling of a major provider (reason suggests the fix)
+//   unrecognised:  deliverable, but not run by an established provider
+// A DNS outage never blocks a sign-up: the emailed code remains the real proof.
+async function checkSignupAddress(parsed, { resolver = dns, timeoutMs = 3000, dnsEnabled = dnsCheckEnabled(), strict = providerCheckEnabled() } = {}) {
+  const domain = parsed.domain;
+  if (providers.isDisposable(domain)) return { ok: false, code: 'disposable', reason: DISPOSABLE_REASON };
+  const fix = providers.typoFor(domain);
+  if (fix) return { ok: false, code: 'typo', reason: `Check the address: did you mean ${parsed.local}@${fix}?`, suggestion: `${parsed.local}@${fix}` };
+  if (!dnsEnabled) return { ok: true };
+  const { result, hosts } = await lookupMail(domain, { resolver, timeoutMs });
+  if (result === 'undeliverable') return { ok: false, code: 'undeliverable', reason: 'That email domain does not appear to accept mail. Check for typos.' };
+  if (result === 'unknown') return { ok: true };
+  if (hosts.some(providers.isDisposableMailHost)) return { ok: false, code: 'disposable', reason: DISPOSABLE_REASON };
+  if (!strict || providers.isKnownProvider(domain) || hosts.some(providers.isEstablishedMailHost)) return { ok: true };
+  return { ok: false, code: 'unrecognised', reason: UNRECOGNISED_REASON };
+}
+
+module.exports = { normalizeEmail, checkDomain, checkSignupAddress, dnsCheckEnabled, providerCheckEnabled, RESERVED_TLDS };

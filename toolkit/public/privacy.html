@@ -3,7 +3,7 @@
 <head>
   <meta charset="UTF-8">
   <meta name="viewport" content="width=device-width, initial-scale=1.0">
-  <title>Privacy notice — Toolkit</title>
+  <title>Privacy policy — Toolkit</title>
   <link rel="icon" href="/img/toolkit.svg" type="image/svg+xml">
   <link rel="stylesheet" href="/css/toolkit.css">
 </head>
@@ -25,55 +25,78 @@
     </nav>
 
     <main class="doc">
-      <h1>Privacy notice</h1>
-      <p class="meta">Version <span id="privacy-version">current</span>. Plain-language summary of how your personal information is handled.</p>
+      <h1>Privacy policy</h1>
+      <p role="note"><strong>Draft — this document is a working draft and is not legal advice. It will be reviewed before launch.</strong></p>
+      <p class="meta">Last updated: 22 November 2026 · Version <span id="privacy-version">2026-11-22</span></p>
+      <p>This policy explains what personal information Toolkit (Sigma, Pigment, ImageVendor and Placeholder) collects, why, who sees it, how long we keep it and what choices you have. It is written with Canada's <em>Personal Information Protection and Electronic Documents Act</em> (PIPEDA) in mind.</p>
 
-      <h2>Who is responsible</h2>
-      <p>This Toolkit service (Sigma, Pigment, ImageVendor and Placeholder) is run by its operator, who is accountable for the personal information described here and for answering your questions. Privacy contact: <strong id="privacy-contact">the administrator of this server</strong>.</p>
+      <h2>1. Who is responsible</h2>
+      <p>[LEGAL ENTITY NAME], [MAILING ADDRESS] ("we", the "operator") is accountable for the personal information described here. Privacy officer: [PRIVACY OFFICER NAME]. Privacy contact: <strong id="privacy-contact">the administrator of this server</strong>.</p>
 
-      <h2>What is collected</h2>
+      <h2>2. What we collect</h2>
       <ul>
-        <li><strong>Account:</strong> your name, your email address, and your password stored only as a one-way hash (nobody, including the operator, can read it). We also record when the account was created, when you last signed in, and which version of this notice you accepted and when.</li>
-        <li><strong>Your work:</strong> the projects, paintings and images you save, including their names, thumbnails and any pictures you import into them. Placeholder converts files inside your own browser; those files are not uploaded.</li>
-        <li><strong>Security records:</strong> your IP address and browser description, kept with each signed-in session (so you can recognise and end them) and in a security log of sign-ins, failed attempts and account changes. The log never contains passwords, session tokens or the contents of your work.</li>
-        <li><strong>One cookie:</strong> a strictly necessary session cookie that keeps you signed in. There are no advertising, analytics or tracking cookies, and no third-party scripts or fonts are loaded.</li>
+        <li><strong>Account details:</strong> your name and email address. For accounts with a password, a bcrypt one-way hash of it (nobody, including us, can read your password). Accounts that use only Google sign-in have no password.</li>
+        <li><strong>Google sign-in (only if you choose it):</strong> your Google account identifier (subject id), verified email address and name, requested through the scopes <em>openid</em>, <em>email</em> and <em>profile</em>. We do not get access to your Google contacts, files, mail or any other Google data.</li>
+        <li><strong>Consent record:</strong> the time you accepted, and the version of this policy you accepted.</li>
+        <li><strong>Sign-in records:</strong> when the account was created, your last sign-in time, and counters of failed sign-in attempts used to slow down password guessing.</li>
+        <li><strong>Sessions:</strong> for each signed-in session, the IP address and browser description (user agent) it came from, plus created and last-used times, so you can recognise and end them.</li>
+        <li><strong>Security log:</strong> a record of security events such as sign-ins, failed attempts and account changes, with the IP address and an account number. It never contains passwords, session tokens or the contents of your work.</li>
+        <li><strong>Your work:</strong> the projects, paintings and images you save, including names, thumbnails and pictures you import. Placeholder converts files inside your browser; those files are not uploaded.</li>
       </ul>
 
-      <h2>Why it is collected</h2>
-      <p>To provide the apps you chose to use, to keep accounts secure and detect abuse, and to meet legal obligations. It is not sold, not used for advertising or profiling, and not used for any purpose unrelated to these.</p>
+      <h2>3. Why we collect it</h2>
+      <p>To create and run your account, provide the apps you use, send confirmation and password-reset emails, keep accounts secure and detect abuse, keep a record of your consent, and meet legal obligations. We do not sell your information, use it for advertising or profiling, or use it for unrelated purposes. By creating an account and ticking the consent box (or continuing with Google) you consent to these uses.</p>
 
-      <h2>Who can see it</h2>
-      <p>Only people the operator has given administrative access to the server. It is not shared with other organisations, except: (a) the operator's mail service receives your address to deliver your sign-up confirmation code and any password-reset messages; (b) when you sign up, the domain part of your email (for example <em>example.org</em>, never your name or the full address) is looked up in DNS to check it can receive mail; (c) where the law requires disclosure.</p>
+      <h2>4. Cookies</h2>
+      <p>We use only strictly necessary cookies: a session cookie that keeps you signed in and, while you sign in with Google, a short-lived (10-minute) sign-in state cookie that protects that sign-in from forgery. There are no analytics, advertising or tracking cookies, and no third-party scripts or fonts are loaded.</p>
 
-      <h2>Where it is kept and how it is protected</h2>
-      <p>Your data is stored on the operator's server (or, in the desktop app, on your own computer). Safeguards include: passwords hashed with bcrypt; sign-in sessions that expire when idle and after a fixed maximum lifetime; HTTPS and strict browser security headers on the hosted service; limits on repeated sign-in attempts; checks on every uploaded picture; a security log whose entries are chained together so that any alteration is detectable; and, where the operator has turned it on, encryption of the stored data.</p>
+      <h2>5. Who we share it with</h2>
+      <p>We do not sell personal information. It is shared only with:</p>
+      <ul>
+        <li><strong>Google</strong>, only if you choose Google sign-in. Google handles that sign-in under its own privacy policy.</li>
+        <li><strong>Our email provider</strong> [EMAIL PROVIDER NAME], which receives your email address and the message so it can deliver sign-up confirmation codes and password-reset emails.</li>
+        <li><strong>Our hosting provider</strong> [HOSTING PROVIDER NAME AND COUNTRY], when Toolkit is hosted, because your data is stored on its infrastructure.</li>
+        <li>Authorities, where the law requires or allows disclosure.</li>
+      </ul>
+      <p>Inside the organisation, only people we have given administrative access to the server can see your information. At sign-up we also look up the domain part of your email (for example <em>example.org</em>, never your name or full address) in DNS to check that it can receive mail.</p>
 
-      <h2>How long it is kept</h2>
+      <h2>6. Where it is stored and how it is protected</h2>
+      <p>On the hosted service your data is stored on our server in [COUNTRY/REGION OF HOSTING], and may be subject to the laws of that place. In the Windows desktop app, data is stored only on your own computer, in <code>%APPDATA%\Toolkit\data</code>. Safeguards include: passwords hashed with bcrypt; sessions that expire when idle and after a maximum lifetime; HTTPS and strict browser security headers on the hosted service; limits on repeated sign-in attempts and other requests; checks on uploaded pictures; a security log whose entries are chained together so alteration is detectable; and, where the operator has turned it on, AES-256-GCM encryption of the stored data. No system is perfectly secure.</p>
+
+      <h2>7. How long we keep it</h2>
       <ul>
         <li>Account and saved work: until you delete them.</li>
-        <li>Sign-in sessions: they end after 12 hours without use or 7 days in total on the hosted service (7 and 30 days in the desktop app), or when you sign out.</li>
-        <li>Security log: 365 days unless the operator has configured a different period, then it is erased.</li>
-        <li>Backup copy: a rolling copy that is refreshed at least every 10 minutes while the service is in use and is replaced immediately when you delete your account.</li>
-        <li>Sign-up confirmation codes: 15 minutes, single use. Password-reset links: 1 hour, single use. Sign-ups never confirmed are deleted after 7 days.</li>
+        <li>Unconfirmed sign-ups: deleted after 7 days.</li>
+        <li>Sign-in sessions: they end after 12 hours without use or 7 days in total on the hosted service (7 days without use and 30 days in total in the desktop app), or when you sign out.</li>
+        <li>Security log: 365 days unless the operator has set a different period, then it is erased.</li>
+        <li>Backup copy: a rolling copy refreshed regularly while the service is in use; it is replaced when you delete your account.</li>
+        <li>Sign-up confirmation codes: 15 minutes, single use. Password-reset links: 1 hour, single use. Google sign-in state cookie: 10 minutes.</li>
       </ul>
 
-      <h2>Your choices and rights</h2>
+      <h2>8. Your rights and choices</h2>
       <ul>
-        <li><strong>See and download</strong> everything held about you: <a href="/account">Account</a> &rarr; Download my data.</li>
-        <li><strong>Correct</strong> your name, and change your password, on the same page. You can also see and end your signed-in sessions.</li>
-        <li><strong>Delete</strong> your account on the same page: your account, every project, painting and image, and all of your sessions are erased immediately. Security-log entries (an anonymous account number, an IP address and the type of event; never your name, email or work) remain until the retention period above ends.</li>
-        <li><strong>Withdraw consent</strong> by deleting your account. Ask questions or raise a concern using the privacy contact above; you may also contact the Office of the Privacy Commissioner of Canada (priv.gc.ca).</li>
+        <li><strong>Access and download:</strong> <a href="/account">Account</a> &rarr; Download my data.</li>
+        <li><strong>Correction:</strong> change your name and password on the account page. To correct your email address, contact the administrator at the privacy contact above.</li>
+        <li><strong>Deletion:</strong> delete your account on the account page. Your account, every project, painting and image, your sessions and the backup copy are erased. Security-log entries keep only an anonymous account number, the event type, IP address and time until the retention period above ends.</li>
+        <li><strong>Withdraw consent:</strong> by deleting your account. Some uses are needed to run the service, so we cannot provide it without them.</li>
+        <li><strong>Questions and complaints:</strong> use the privacy contact above. You may also complain to the Office of the Privacy Commissioner of Canada (priv.gc.ca).</li>
       </ul>
 
-      <h2>If something goes wrong</h2>
-      <p>If a breach of security safeguards creates a real risk of significant harm to you, the operator will notify you and the Privacy Commissioner of Canada as the law requires, and will keep a record of the incident.</p>
+      <h2>9. Security incidents</h2>
+      <p>We keep a record of every breach of security safeguards. If a breach creates a real risk of significant harm to you, we will report it to the Office of the Privacy Commissioner of Canada and notify you, as PIPEDA requires.</p>
 
-      <h2>Changes</h2>
-      <p>When this notice changes materially its version number changes, and each account records the version it accepted.</p>
+      <h2>10. Children</h2>
+      <p>Toolkit is not directed to children under 13 [owner to confirm age]. We do not knowingly collect information from them; if you believe a child has created an account, contact us and we will delete it.</p>
+
+      <h2>11. Changes to this policy</h2>
+      <p>When this policy changes materially, its version number and "Last updated" date change, and we will tell you where practical. Each account records the version it accepted.</p>
+
+      <h2>12. Contact</h2>
+      <p>[PRIVACY OFFICER NAME], [LEGAL ENTITY NAME], [MAILING ADDRESS]. See also the <a href="/terms">terms of service</a>.</p>
     </main>
 
     <footer>
-      <div>© 2026 Toolkit.</div>
+      <div>© 2026 Toolkit. <a href="/terms">Terms of service</a> · <a href="/privacy">Privacy policy</a></div>
     </footer>
   </div>
   <script type="module" src="/js/privacy.js"></script>

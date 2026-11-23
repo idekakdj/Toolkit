@@ -338,13 +338,13 @@ export async function listFrom(src) {
 
   // Placeholder is a converter — no list to show
   if (src === 'placeholder') {
-    grid.innerHTML = '<p style="padding:1rem;opacity:.75;">'
+    grid.innerHTML = '<p class="grid-msg grid-msg-info">'
       + 'Placeholder converts files — use the “Your computer” tab to load a file, '
       + 'or open Placeholder and import this image there.</p>';
     return;
   }
 
-  grid.innerHTML = '<p style="opacity:.6;padding:1rem;">Loading…</p>';
+  grid.innerHTML = '<p class="grid-msg">Loading…</p>';
 
   const listPath = src === 'sigma' ? '/api/projects' : '/api/paintings';
   const listKey  = src === 'sigma' ? 'projects'     : 'paintings';
@@ -355,7 +355,7 @@ export async function listFrom(src) {
     items = (data && data[listKey]) || [];
   } catch (err) {
     if (redirectIfSignedOut(err) || revision !== listRevision) return;
-    grid.innerHTML = '<p style="opacity:.6;padding:1rem;">Could not load from '
+    grid.innerHTML = '<p class="grid-msg">Could not load from '
       + esc(src) + ': ' + esc(err.message) + '</p>';
     return;
   }
@@ -365,7 +365,7 @@ export async function listFrom(src) {
 
   if (!items.length) {
     const label = src === 'sigma' ? 'Sigma projects' : 'Pigment paintings';
-    grid.innerHTML = '<p style="opacity:.6;padding:1rem;">No ' + label + ' found. Create one first!</p>';
+    grid.innerHTML = '<p class="grid-msg">No ' + label + ' found. Create one first!</p>';
     return;
   }
 
@@ -373,16 +373,15 @@ export async function listFrom(src) {
     const card = document.createElement('button');
     card.type = 'button';
     card.className = 'import-item';
-    card.style.cursor = 'pointer';
     const thumbHTML = item.thumbnail
-      ? '<img src="' + esc(item.thumbnail) + '" alt="" style="max-width:100%;display:block;">'
+      ? '<img src="' + esc(item.thumbnail) + '" alt="" class="import-card-img">'
       : '';
     card.innerHTML = thumbHTML
-      + '<div style="padding:.4rem .2rem;font-size:.85em;">'
+      + '<div class="import-card-name">'
       + esc(item.name || 'Untitled') + '</div>';
 
     card.addEventListener('click', async () => {
-      grid.innerHTML = '<p style="opacity:.6;padding:1rem;">Loading “'
+      grid.innerHTML = '<p class="grid-msg">Loading “'
         + esc(item.name || 'Untitled') + '”…</p>';
       try {
         let canvas;
@@ -403,7 +402,7 @@ export async function listFrom(src) {
         closeModal('import-modal');
       } catch (err) {
         if (redirectIfSignedOut(err)) return;
-        grid.innerHTML = '<p style="opacity:.6;padding:1rem;">Failed to import: '
+        grid.innerHTML = '<p class="grid-msg">Failed to import: '
           + esc(err.message) + '</p>';
       }
     });

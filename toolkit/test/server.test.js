@@ -33,7 +33,7 @@ test('malformed cookies and JSON fail safely; CSRF stays enforced', async () => 
   assert.equal((await fetch(base + '/api/auth/logout', { method: 'POST', headers: { 'X-Requested-With': 'test', Origin: 'https://foreign.example' } })).status, 403);
 });
 test('rejected updates are atomic across all three document stores', async () => {
-  const registered = await request('/api/auth/register', 'POST', { name: 'Test user', email: 'test@example.com', password: 'violet-harbor-lamp-42', acceptTerms: true }, '');
+  const registered = await request('/api/auth/register', 'POST', { name: 'Test user', email: 'test@example.com', password: 'Violet-Harbor-Lamp-42', acceptTerms: true }, '');
   assert.equal(registered.status, 201);
   cookie = registered.headers.get('set-cookie').split(';')[0];
   for (const [collection, key] of [['projects', 'project'], ['paintings', 'painting'], ['images', 'image']]) {

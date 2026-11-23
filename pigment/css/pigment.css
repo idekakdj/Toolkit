@@ -1059,3 +1059,23 @@ button.import-item { font: inherit; color: inherit; text-align: left; width: 100
   }
 }
 .rail-size-value { font-size: 0.62rem; color: var(--mid-grey); font-variant-numeric: tabular-nums; }
+
+/* palette swatch colours (moved from inline styles for strict CSP) */
+.swatch[data-color="#e0342f"] { background-color: #e0342f; }
+.swatch[data-color="#f08a24"] { background-color: #f08a24; }
+.swatch[data-color="#f4c20d"] { background-color: #f4c20d; }
+.swatch[data-color="#43a047"] { background-color: #43a047; }
+.swatch[data-color="#18a999"] { background-color: #18a999; }
+.swatch[data-color="#2a6fdb"] { background-color: #2a6fdb; }
+.swatch[data-color="#5a4fcf"] { background-color: #5a4fcf; }
+.swatch[data-color="#9c27b0"] { background-color: #9c27b0; }
+.swatch[data-color="#e91e63"] { background-color: #e91e63; }
+.swatch[data-color="#795548"] { background-color: #795548; }
+.swatch[data-color="#1e1e1e"] { background-color: #1e1e1e; }
+.swatch[data-color="#ffffff"] { background-color: #ffffff; }
+
+/* moved from inline styles (strict CSP) */
+.grid-msg { opacity: .6; padding: 1rem; }
+.grid-msg.grid-msg-err { opacity: 1; color: var(--c-err, red); }
+.offscreen-svg { position: absolute; left: -99999px; top: 0; visibility: hidden; overflow: visible; }
+.offscreen-svg-clip { position: absolute; left: -9999px; top: -9999px; visibility: hidden; }

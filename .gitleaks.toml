@@ -1,0 +1,18 @@
+title = "Toolkit gitleaks configuration"
+
+[extend]
+useDefault = true
+
+# Narrow allowlist: only known fake values used by the test suite, and vendored libraries.
+[allowlist]
+description = "Known test fixtures with fake values, and vendored third-party files"
+paths = [
+  '''placeholder/vendor/''',
+]
+regexes = [
+  '''test-secret-value''',                  # toolkit/test/google.test.cjs, mfa.test.cjs
+  '''hosted-test-secret''',                 # toolkit/test/hosted.test.cjs
+  '''GEZDGNBVGY3TQOJQGEZDGNBVGY3TQOJQ''',   # RFC 6238 test secret ("12345678901234567890")
+  '''JBSWY3DPEHPK3PXPJBSWY3DPEHPK3PXP''',   # toolkit/test/mfa.test.cjs fake TOTP secret
+  '''PENDINGSECRETPENDINGSECRET234567''',   # toolkit/test/mfa.test.cjs fake pending secret
+]

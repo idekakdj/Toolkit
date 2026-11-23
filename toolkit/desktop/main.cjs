@@ -1,7 +1,22 @@
 const { app, BrowserWindow, Menu, dialog, shell, session } = require('electron');
 const path = require('node:path');
 const fs = require('node:fs');
+const crypto = require('node:crypto');
 const { startRuntime } = require('./runtime.cjs');
+const { loadEnvFile } = require('../server/env-file');
+
+// Google sign-in keys for the desktop app live in a .env file in the Toolkit user folder
+// (%APPDATA%\Toolkit\.env), never in the installer. Template written by the
+// "Set up Google sign-in" menu item.
+const ENV_TEMPLATE = [
+  '# Toolkit desktop settings. Keep this file private: it holds secrets.',
+  '# Google sign-in: Google Cloud Console > APIs & Services > Credentials > OAuth client ID (Web application),',
+  '# with this Authorized redirect URI:  http://127.0.0.1:4310/api/auth/google/callback',
+  '# Paste the values after the = signs, save, then quit and reopen Toolkit.',
+  'GOOGLE_CLIENT_ID=',
+  'GOOGLE_CLIENT_SECRET=',
+  '',
+].join('\r\n');
 
 app.setName('Toolkit');
 // Test launches never touch the normal desktop profile or web-project database.
@@ -25,6 +40,11 @@ else {
     const connectionFile = path.join(app.getPath('userData'), 'connection.json');
     let serverUrl = process.env.TOOLKIT_SERVER_URL;
     if (!serverUrl && fs.existsSync(connectionFile)) serverUrl = JSON.parse(fs.readFileSync(connectionFile, 'utf8')).serverUrl;
+    const envFile = path.join(app.getPath('userData'), '.env');
+    loadEnvFile(envFile);
+    // Running from a source checkout (npm run desktop) also picks up toolkit/.env; test
+    // launches never do, so they cannot see the developer's real keys.
+    if (!app.isPackaged && !process.env.TOOLKIT_DESKTOP_TEST_DIR) loadEnvFile();
     runtime = await startRuntime({ dataDir, assetRoot, serverUrl });
     const desktopSession = session.fromPartition('persist:toolkit');
     desktopSession.setPermissionRequestHandler((_contents, _permission, callback) => callback(false));
@@ -44,7 +64,58 @@ else {
       // A user choosing Stay in the unsaved-work dialog aborts navigation.
       if (err.code !== 'ERR_ABORTED') console.error('[desktop] navigation failed:', err.message);
     });
-    window.webContents.on('will-navigate', (event, url) => { if (!isLocal(url)) event.preventDefault(); });
+    // Google does not allow sign-in inside an app window, so "Continue with Google" runs in
+    // the person's normal web browser and this window waits for the result (see the
+    // desktop handoff in server/google.js). Test launches record the URL instead of opening it.
+    const openInBrowser = url => {
+      if (process.env.TOOLKIT_DESKTOP_TEST_DIR) {
+        fs.appendFileSync(path.join(process.env.TOOLKIT_DESKTOP_TEST_DIR, 'opened-urls.txt'), url + '\n');
+        return Promise.resolve();
+      }
+      return shell.openExternal(url);
+    };
+    async function googleSignIn(url) {
+      const link = new URL(url);
+      if (runtime.remote) {
+        // A shared server would let anyone who sends this person a link take the session.
+        return navigate(new URL('/auth?google=desktop_unavailable', runtime.origin).href);
+      }
+      if (link.searchParams.has('handoff')) {
+        // "Open the browser again". Cancelling the click's navigation also cancels the waiting
+        // page's scheduled refresh, so reload it to keep checking.
+        await openInBrowser(link.href);
+        window.webContents.reload();
+        return;
+      }
+      const id = crypto.randomBytes(32).toString('base64url');
+      const secret = crypto.randomBytes(32).toString('base64url');                  // never leaves this app and the server
+      const begin = new URL('/api/auth/google/desktop/begin', runtime.origin);
+      for (const key of ['next', 'intent']) if (link.searchParams.has(key)) begin.searchParams.set(key, link.searchParams.get(key));
+      begin.searchParams.set('id', id);
+      begin.searchParams.set('secret', secret);
+      await navigate(begin.href);
+      // Only once the server has registered the sign-in (the window shows the waiting page).
+      if (window && new URL(window.webContents.getURL()).pathname === '/api/auth/google/desktop/wait') {
+        await openInBrowser(new URL('/api/auth/google/start?handoff=' + id, runtime.origin).href);
+      }
+    }
+    // While the person is in their browser this window is in the background, where page
+    // timers (the waiting page's auto-refresh) are throttled: check again the moment they return.
+    window.on('focus', () => {
+      try {
+        if (new URL(window.webContents.getURL()).pathname === '/api/auth/google/desktop/wait') window.webContents.reload();
+      } catch { /* no page yet */ }
+    });
+    window.webContents.on('will-navigate', (event, url) => {
+      let target;
+      try { target = new URL(url); } catch { event.preventDefault(); return; }
+      if (target.origin === runtime.origin && target.pathname === '/api/auth/google/start') {
+        event.preventDefault();
+        googleSignIn(url).catch(err => dialog.showErrorBox('Google sign-in', err.message));
+        return;
+      }
+      if (!isLocal(url)) event.preventDefault();
+    });
     window.webContents.on('will-redirect', (event, url) => { if (!isLocal(url)) event.preventDefault(); });
     window.webContents.setWindowOpenHandler(({ url }) => {
       // Local target=_blank links stay inside the authenticated shell.
@@ -82,6 +153,17 @@ else {
           if (choice.response === 1) { if (fs.existsSync(connectionFile)) fs.unlinkSync(connectionFile); app.relaunch(); app.quit(); }
         } },
         { label: 'Open data folder', click: () => { fs.mkdirSync(dataDir, { recursive: true }); void shell.openPath(dataDir); } },
+        { label: 'Set up Google sign-in…', click: async () => {
+          const choice = await dialog.showMessageBox(window, {
+            title: 'Set up Google sign-in', message: 'Add your Google sign-in keys',
+            detail: 'Toolkit opens its private settings file:\n' + envFile + '\n\nPaste your Google OAuth client ID and secret after the = signs, save the file, then quit and reopen Toolkit. The file stays on this PC; it is never part of the installer or any upload.',
+            buttons: ['Cancel', 'Open settings file'], defaultId: 1, cancelId: 0,
+          });
+          if (choice.response !== 1) return;
+          if (!fs.existsSync(envFile)) fs.writeFileSync(envFile, ENV_TEMPLATE, { mode: 0o600 });
+          const failed = await shell.openPath(envFile);
+          if (failed) void shell.showItemInFolder(envFile);
+        } },
         { type: 'separator' }, { role: 'quit' },
       ] },
       { label: 'View', submenu: [{ role: 'reload' }, { role: 'resetZoom' }, { role: 'zoomIn' }, { role: 'zoomOut' }, { role: 'togglefullscreen' }] },

@@ -18,8 +18,8 @@ certified" or "PIPEDA compliant":
 So this work delivers the **technical foundation** those audits look at, honestly mapped and
 tested. The organizational parts (written policies approved by management, a risk assessment,
 staff training, vendor reviews, an independent penetration test, evidence collection over time,
-a named privacy officer) are listed in [`OPERATIONS.md`](OPERATIONS.md) and
-[`POLICY-TEMPLATES.md`](POLICY-TEMPLATES.md) and need a person or team to own them. Where the
+a named privacy officer) are listed in [`OPERATIONS.md`](OPERATIONS.md) and the draft
+[`policies/`](policies/) and need a person or team to own them. Where the
 law applies to you, have qualified counsel review the privacy notice before relying on it.
 
 ## Contents
@@ -29,7 +29,12 @@ law applies to you, have qualified counsel review the privacy notice before rely
 | [`SECURITY-ASSESSMENT.md`](SECURITY-ASSESSMENT.md) | The vulnerability assessment: what was found, how it was proven, what was fixed, what remains |
 | [`CONTROLS.md`](CONTROLS.md) | Control-by-control map to SOC 2 criteria, ISO 27001 Annex A and PIPEDA principles, with the code and tests that implement each |
 | [`OPERATIONS.md`](OPERATIONS.md) | Operator checklist, configuration reference, backup/restore, key rotation, data-subject requests, incident response and breach reporting, retention |
-| [`POLICY-TEMPLATES.md`](POLICY-TEMPLATES.md) | Skeletons of the written policies auditors expect, to be completed and approved by the organization |
+| [`GAP-ANALYSIS.md`](GAP-ANALYSIS.md) | Requirement-by-requirement status for SOC 2 (Security, Confidentiality, Privacy), ISO 27001:2022 and PIPEDA |
+| [`GITHUB-SETTINGS.md`](GITHUB-SETTINGS.md) | Click-by-click GitHub settings the owner must apply (security features, Actions, branch ruleset) for the CI pipeline |
+| [`ROADMAP.md`](ROADMAP.md) | Prioritised technical and organisational backlog with acceptance criteria |
+| [`STATEMENT-OF-APPLICABILITY.md`](STATEMENT-OF-APPLICABILITY.md) | ISO 27001 Annex A applicability skeleton |
+| [`policies/`](policies/) | Draft policies: [information security](policies/information-security-policy.md), [access control](policies/access-control.md), [incident response](policies/incident-response.md), [data retention](policies/data-retention-and-disposal.md), [vendor management](policies/vendor-management.md), [change management](policies/change-management.md), [backup and continuity](policies/backup-and-continuity.md), [risk assessment](policies/risk-assessment.md) |
+| [`POLICY-TEMPLATES.md`](POLICY-TEMPLATES.md) | Superseded index pointing to `policies/` |
 
 ## Verifying the claims yourself
 

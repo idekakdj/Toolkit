@@ -1,6 +1,20 @@
 # Windows desktop build verification
 
-**Current release: 1.2.0** (2026-11-22). Built `dist/Toolkit-Setup-1.2.0-x64.exe` with Electron
+**Current release: 1.3.0** (2026-11-22). Built `dist/Toolkit-Setup-1.3.0-x64.exe` (same toolchain and
+audit result as below; SHA-256 in `dist/SHA256SUMS.txt`). Installed on the user's PC 2026-11-22 (silent in-place update; data folder untouched, re-probed after install).
+
+What changed in 1.3.0: sign-in with Google ("Continue with Google"; on the desktop app the Google step
+runs in the system browser and the app window claims the session with a secret only it holds; local
+Toolkit only), email/password sign-ups limited to established mail providers with disposable-inbox and
+typo refusal, a live password strength meter (Strong = 10+ characters with a capital, number and
+symbol, now the minimum), confirm-password fields, and sign-in fixes. Google keys for the desktop app are
+read from `%APPDATA%\Toolkit\.env` (menu: Toolkit > Set up Google sign-in), never packaged. Verified on
+the packaged app with a disposable profile: Google button shown from the profile's `.env`, click opens the
+system browser with only the handoff id, waiting page, "Open the browser again", a cancelled Google
+result reaching the app window, no session granted; `app.asar` contains no `.env`, database or tests; the
+live database hash was unchanged.
+
+**Previous release: 1.2.0** (2026-11-22). Built `dist/Toolkit-Setup-1.2.0-x64.exe` with Electron
 44.10.0 and electron-builder 26.15.3 (unsigned Windows x64 NSIS installer; SHA-256 in
 `dist/SHA256SUMS.txt`). The npm audit reports 0 vulnerabilities (`dependency-audit.json`). A
 build-tool-only `minimatch` denial-of-service advisory (versions 7.0.0 to 11.0.0, pulled in by

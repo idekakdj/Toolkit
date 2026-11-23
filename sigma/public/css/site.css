@@ -336,3 +336,6 @@ a:hover { text-decoration: underline; }
 }
 
 button:focus-visible, a:focus-visible, .project-thumb:focus-visible { outline: 2px solid var(--turquoise); outline-offset: 2px; }
+
+.user-name { color: var(--ink-soft); font-weight: 600; }
+.text-soft { color: var(--ink-soft); }

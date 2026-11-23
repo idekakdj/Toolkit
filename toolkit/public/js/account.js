@@ -1,12 +1,43 @@
 // Account self-service: profile, password, sessions, data export and deletion.
 // All server text is written with textContent; nothing here builds HTML from data.
+// Accounts created with Google have no password: they can set one here, and confirm
+// sensitive actions by continuing with Google again instead of typing a password.
 import { api } from './api.js';
+import { attachMeter, attachMatch, weakReason, MIN_LENGTH } from './password-strength.js';
+import { drawQr } from './qr-canvas.js';
 
 const $ = id => document.getElementById(id);
 const errorBox = $('acct-error');
 const noticeBox = $('acct-notice');
+let hasPassword = true;
 
-function showError(msg) { noticeBox.classList.remove('show'); errorBox.textContent = msg; errorBox.classList.add('show'); window.scrollTo({ top: 0, behavior: 'smooth' }); }
+const meter = attachMeter($('pw-new'), { minLength: MIN_LENGTH });
+const match = attachMatch($('pw-new'), $('pw-confirm'), $('pw-confirm-hint'));
+// Two-step sign-in state. view: 'idle' (status + start/manage forms) | 'enrol' (QR step) | 'codes' (recovery codes).
+const mfa = { enabled: false, view: 'idle', setupRequired: new URLSearchParams(window.location.search).get('setup-mfa') === '1', operatorRequires: false, codes: [] };
+api('/api/auth/config').then(c => {
+  meter.setMinLength(c.passwordMinLength);
+  mfa.operatorRequires = !!c.mfaRequired;
+  updateMfaView();
+}).catch(() => { /* default is fine */ });
+
+function showError(msg, code) {
+  noticeBox.classList.remove('show');
+  errorBox.textContent = msg;
+  if (code === 'reauth_google') {
+    // No password to retype: a fresh Google sign-in confirms it is the account owner.
+    const link = document.createElement('a');
+    link.className = 'btn btn-sm';
+    link.href = '/api/auth/google/start?intent=reauth&next=' + encodeURIComponent('/account');
+    link.textContent = 'Continue with Google';
+    const row = document.createElement('p');
+    row.style.marginTop = '10px';
+    row.append(link);
+    errorBox.append(row);
+  }
+  errorBox.classList.add('show');
+  window.scrollTo({ top: 0, behavior: 'smooth' });
+}
 function showNotice(msg) { errorBox.classList.remove('show'); noticeBox.textContent = msg; noticeBox.classList.add('show'); window.scrollTo({ top: 0, behavior: 'smooth' }); }
 function clearMessages() { errorBox.classList.remove('show'); noticeBox.classList.remove('show'); }
 
@@ -29,6 +60,9 @@ function bytes(n) {
 async function loadAccount() {
   const { account } = await call('/api/account');
   $('acct-email').textContent = account.email;
+  $('acct-methods').textContent = [account.hasPassword && 'Email and password', account.google && 'Google'].filter(Boolean).join(', ') || 'Email and password';
+  setPasswordMode(account.hasPassword);
+  renderMfa(account);
   $('acct-created').textContent = when(account.createdAt);
   $('acct-last').textContent = when(account.lastLoginAt);
   $('acct-consent').textContent = account.consent
@@ -39,6 +73,177 @@ async function loadAccount() {
   $('storage-line').textContent = 'Storing ' + c.projects + ' Sigma project(s), ' + c.paintings + ' Pigment painting(s) and '
     + c.images + ' ImageVendor image(s): ' + bytes(s.usedBytes) + (s.limitBytes ? ' of ' + bytes(s.limitBytes) : '') + ' used.';
 }
+
+// Google-only accounts "set" a first password instead of changing one.
+function setPasswordMode(withPassword) {
+  hasPassword = withPassword;
+  $('h-password').textContent = withPassword ? 'Change password' : 'Set a password';
+  $('pw-intro').textContent = withPassword
+    ? 'Changing your password signs you out everywhere else.'
+    : 'You sign in with Google. Add a password to also sign in with your email address. This signs you out everywhere else.';
+  $('pw-current-field').hidden = !withPassword;
+  $('pw-submit').textContent = withPassword ? 'Change password' : 'Set password';
+  $('del-password-field').hidden = !withPassword;
+  $('del-password').required = withPassword;
+  $('del-google-note').hidden = withPassword;
+  for (const id of ['mfa-start-pw-field', 'mfa-regen-pw-field', 'mfa-disable-pw-field']) $(id).hidden = !withPassword;
+}
+
+// ---------- two-step sign-in ----------
+let mfaScrolled = false;
+function renderMfa(account) {
+  const m = account.mfa || { enabled: false, enrolledAt: null, recoveryRemaining: 0 };
+  mfa.enabled = !!m.enabled;
+  if (account.mfaSetupRequired) mfa.setupRequired = true;
+  const n = m.recoveryRemaining || 0;
+  $('mfa-status').textContent = m.enabled
+    ? 'On since ' + (m.enrolledAt ? new Date(m.enrolledAt).toLocaleDateString() : 'earlier') + '. ' + n + ' recovery code' + (n === 1 ? '' : 's') + ' left.'
+    : 'Off. Add a code from an authenticator app (Google Authenticator, Microsoft Authenticator, 1Password, ...) when you sign in.';
+  if (m.enabled) mfa.setupRequired = false;
+  updateMfaView();
+  if (mfa.setupRequired && !mfaScrolled) {
+    mfaScrolled = true;
+    $('mfa-panel').scrollIntoView({ behavior: 'smooth', block: 'start' });
+  }
+}
+
+function updateMfaView() {
+  const idle = mfa.view === 'idle';
+  $('mfa-required-note').hidden = !mfa.setupRequired;
+  $('mfa-start-form').hidden = !(idle && !mfa.enabled);
+  $('mfa-manage').hidden = !(idle && mfa.enabled);
+  $('mfa-disable-form').hidden = mfa.operatorRequires;
+  $('mfa-enrol').hidden = mfa.view !== 'enrol';
+  $('mfa-codes').hidden = mfa.view !== 'codes';
+}
+
+function showCodes(codes, afterSetup) {
+  mfa.codes = codes;
+  mfa.view = 'codes';
+  const list = $('mfa-code-list');
+  list.replaceChildren();
+  for (const c of codes) {
+    const li = document.createElement('li');
+    li.textContent = c;
+    list.append(li);
+  }
+  $('mfa-continue').hidden = !(afterSetup && mfa.setupRequired);
+  updateMfaView();
+  $('mfa-codes').scrollIntoView({ behavior: 'smooth', block: 'nearest' });
+}
+
+async function copyText(text) {
+  try { await navigator.clipboard.writeText(text); showNotice('Copied.'); } catch { /* clipboard may be blocked */ }
+}
+
+const needsPassword = () => hasPassword;
+function reauthBody(inputId) {
+  return needsPassword() ? { currentPassword: $(inputId).value } : {};
+}
+function checkPassword(inputId) {
+  if (needsPassword() && !$(inputId).value) { $(inputId).focus(); showError('Enter your current password.'); return false; }
+  return true;
+}
+function cleanCode(v) { return v.trim(); }
+function mfaFail(err, input) {
+  const code = err.data && err.data.code;
+  if (code === 'mfa_no_setup') {
+    mfa.view = 'idle';
+    updateMfaView();
+    return showError('Your setup expired. Start again.', code);
+  }
+  if (code === 'mfa_already_enabled') { mfa.view = 'idle'; loadAccount().catch(() => {}); }
+  if (code === 'mfa_required') { mfa.operatorRequires = true; updateMfaView(); }
+  if (input && code === 'mfa_invalid') input.focus();
+  showError(err.message, code);
+}
+
+$('mfa-start-form').addEventListener('submit', async e => {
+  e.preventDefault(); clearMessages();
+  if (!checkPassword('mfa-start-pw')) return;
+  const btn = $('mfa-start-btn'); btn.disabled = true;
+  try {
+    const res = await call('/api/account/mfa/setup', { method: 'POST', body: reauthBody('mfa-start-pw') });
+    $('mfa-start-pw').value = '';
+    drawQr($('mfa-qr'), res.qr);
+    $('mfa-secret').textContent = res.secret;
+    $('mfa-enable-code').value = '';
+    mfa.view = 'enrol';
+    updateMfaView();
+    $('mfa-enable-code').focus();
+  } catch (err) { mfaFail(err); }
+  finally { btn.disabled = false; }
+});
+
+$('mfa-copy-key').addEventListener('click', () => copyText($('mfa-secret').textContent));
+
+$('mfa-enable-form').addEventListener('submit', async e => {
+  e.preventDefault(); clearMessages();
+  const input = $('mfa-enable-code');
+  const code = cleanCode(input.value);
+  if (!code) { input.focus(); return showError('Enter the 6-digit code from your authenticator app.'); }
+  const btn = $('mfa-enable-btn'); btn.disabled = true;
+  try {
+    const res = await call('/api/account/mfa/enable', { method: 'POST', body: { code } });
+    input.value = '';
+    $('mfa-secret').textContent = '';
+    const wasRequired = mfa.setupRequired;
+    showCodes(res.recoveryCodes || [], true);
+    mfa.setupRequired = wasRequired;
+    $('mfa-continue').hidden = !wasRequired;
+    const { account } = await call('/api/account');
+    mfa.enabled = !!(account.mfa && account.mfa.enabled);
+    const n = (account.mfa && account.mfa.recoveryRemaining) || 0;
+    $('mfa-status').textContent = 'On since ' + new Date((account.mfa && account.mfa.enrolledAt) || Date.now()).toLocaleDateString() + '. ' + n + ' recovery code' + (n === 1 ? '' : 's') + ' left.';
+  } catch (err) { mfaFail(err, input); }
+  finally { btn.disabled = false; }
+});
+
+$('mfa-regen-form').addEventListener('submit', async e => {
+  e.preventDefault(); clearMessages();
+  if (!checkPassword('mfa-regen-pw')) return;
+  const input = $('mfa-regen-code');
+  const code = cleanCode(input.value);
+  if (!code) { input.focus(); return showError('Enter the 6-digit code from your authenticator app.'); }
+  try {
+    const res = await call('/api/account/mfa/recovery-codes', { method: 'POST', body: { ...reauthBody('mfa-regen-pw'), code } });
+    $('mfa-regen-pw').value = ''; input.value = '';
+    showCodes(res.recoveryCodes || [], false);
+  } catch (err) { mfaFail(err, input); }
+});
+
+$('mfa-disable-form').addEventListener('submit', async e => {
+  e.preventDefault(); clearMessages();
+  if (!checkPassword('mfa-disable-pw')) return;
+  const input = $('mfa-disable-code');
+  const code = cleanCode(input.value);
+  if (!code) { input.focus(); return showError('Enter an authenticator code or a recovery code.'); }
+  try {
+    await call('/api/account/mfa/disable', { method: 'POST', body: { ...reauthBody('mfa-disable-pw'), code } });
+    $('mfa-disable-pw').value = ''; input.value = '';
+    showNotice('Two-step sign-in is off.');
+    await loadAccount();
+  } catch (err) { mfaFail(err, input); }
+});
+
+function codesText() {
+  return 'Toolkit recovery codes\nEach code works once.\n\n' + mfa.codes.join('\n') + '\n';
+}
+$('mfa-download').addEventListener('click', () => {
+  const url = URL.createObjectURL(new Blob([codesText()], { type: 'text/plain' }));
+  const a = document.createElement('a');
+  a.href = url; a.download = 'toolkit-recovery-codes.txt';
+  document.body.append(a); a.click(); a.remove();
+  setTimeout(() => URL.revokeObjectURL(url), 5000);
+});
+$('mfa-copy-codes').addEventListener('click', () => copyText(mfa.codes.join('\n')));
+$('mfa-saved').addEventListener('click', async () => {
+  mfa.codes = [];
+  $('mfa-code-list').replaceChildren();
+  mfa.view = 'idle';
+  updateMfaView();
+  try { await loadAccount(); } catch { /* shown elsewhere */ }
+});
 
 async function loadSessions() {
   const { sessions } = await call('/api/account/sessions');
@@ -51,7 +256,8 @@ async function loadSessions() {
     agent.textContent = s.agent || 'Unknown browser';
     const detail = document.createElement('span');
     detail.className = 'muted';
-    detail.textContent = ' · ' + (s.ip || 'unknown address') + ' · last active ' + when(s.lastSeen);
+    detail.textContent = ' · ' + (s.ip || 'unknown address') + ' · last active ' + when(s.lastSeen)
+      + (s.method === 'google' ? ' · signed in with Google' : '');
     info.append(agent, detail);
     li.append(info);
     if (s.current) {
@@ -85,12 +291,21 @@ $('name-form').addEventListener('submit', async e => {
 
 $('password-form').addEventListener('submit', async e => {
   e.preventDefault(); clearMessages();
+  const next = $('pw-new').value;
+  if (hasPassword && !$('pw-current').value) { $('pw-current').focus(); return showError('Enter your current password.'); }
+  const weak = weakReason(next);
+  if (weak) { $('pw-new').focus(); return showError(weak); }
+  if (next !== $('pw-confirm').value) { $('pw-confirm').focus(); return showError('The two new passwords do not match.'); }
   try {
-    const res = await call('/api/account/password', { method: 'POST', body: { currentPassword: $('pw-current').value, newPassword: $('pw-new').value } });
-    $('pw-current').value = ''; $('pw-new').value = '';
-    showNotice('Password changed.' + (res.otherSessionsRevoked ? ' ' + res.otherSessionsRevoked + ' other session(s) signed out.' : ''));
-    await loadSessions();
-  } catch (err) { showError(err.message); }
+    const body = { newPassword: next };
+    if (hasPassword) body.currentPassword = $('pw-current').value;
+    const res = await call('/api/account/password', { method: 'POST', body });
+    $('pw-current').value = ''; $('pw-new').value = ''; $('pw-confirm').value = '';
+    meter.update(); match.update();
+    showNotice((res.firstPassword ? 'Password set. You can now also sign in with your email address and password.' : 'Password changed.')
+      + (res.otherSessionsRevoked ? ' ' + res.otherSessionsRevoked + ' other session(s) signed out.' : ''));
+    await Promise.all([loadAccount(), loadSessions()]);
+  } catch (err) { showError(err.message, err.data && err.data.code); }
 });
 
 $('revoke-others-btn').addEventListener('click', async () => {
@@ -124,9 +339,11 @@ $('delete-form').addEventListener('submit', async e => {
   if ($('del-confirm').value !== 'DELETE') return showError('Type DELETE (capital letters) to confirm.');
   if (!window.confirm('Permanently delete your account and everything in it?')) return;
   try {
-    await call('/api/account', { method: 'DELETE', body: { currentPassword: $('del-password').value, confirm: $('del-confirm').value } });
+    const body = { confirm: $('del-confirm').value };
+    if (hasPassword) body.currentPassword = $('del-password').value;
+    await call('/api/account', { method: 'DELETE', body });
     window.location.href = '/';
-  } catch (err) { showError(err.message); }
+  } catch (err) { showError(err.message, err.data && err.data.code); }
 });
 
 $('signout-btn').addEventListener('click', async e => {

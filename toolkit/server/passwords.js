@@ -1,12 +1,17 @@
-// Password policy (NIST SP 800-63B aligned): length over composition rules,
-// no forced rotation, and a refusal of well-known weak or context-derived values.
+// Password policy: at least 10 characters including a capital letter, a number and a
+// symbol (the "Strong" level of the sign-up strength meter, public/js/password-strength.js,
+// which mirrors these rules), no forced rotation, and a refusal of well-known weak or
+// context-derived values even when they satisfy the character rules.
 //
 // bcrypt only reads the first 72 BYTES of its input; anything beyond that is
 // silently ignored, so two different long passwords could authenticate as one.
 // The policy therefore caps the encoded length at 72 bytes instead of accepting
 // a longer value that would not actually be honoured.
-const MIN_LENGTH = 12;
+const MIN_LENGTH = 10;
 const MAX_BYTES = 72;
+const HAS_CAPITAL = /\p{Lu}/u;
+const HAS_NUMBER = /\p{Nd}/u;
+const HAS_SYMBOL = /[^\p{L}\p{N}\s]/u;     // punctuation or symbol; spaces do not count
 
 // Base words that make a password guessable when only digits/symbols/case are added.
 const BASE_WORDS = new Set([
@@ -46,6 +51,9 @@ function checkPassword(password, { email = '', name = '' } = {}) {
     return `Password is too long (maximum ${MAX_BYTES} bytes, roughly ${MAX_BYTES} plain characters).`;
   }
   if (password.includes('\u0000')) return 'Password contains an invalid character.';
+  if (!HAS_CAPITAL.test(password)) return 'Password needs at least one capital letter.';
+  if (!HAS_NUMBER.test(password)) return 'Password needs at least one number.';
+  if (!HAS_SYMBOL.test(password)) return 'Password needs at least one symbol, such as ! ? # $ or -.';
 
   const lower = normalizeForCompare(password);
   const alnum = lower.replace(/[^\p{L}\p{N}]/gu, '');

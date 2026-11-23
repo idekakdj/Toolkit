@@ -107,7 +107,7 @@ async function sigmaTextToItem(node, budget) {
   const { text, size, weight, family, fill } = validateSigmaText(node);
   const ns = 'http://www.w3.org/2000/svg';
   const root = document.createElementNS(ns, 'svg');
-  root.style.cssText = 'position:absolute;left:-99999px;top:0;visibility:hidden;overflow:visible';
+  root.setAttribute('class', 'offscreen-svg');
   const label = document.createElementNS(ns, 'text');
   for (const [key, value] of Object.entries({ fill, 'font-family': family, 'font-size': size, 'font-weight': weight })) label.setAttribute(key, value);
   label.style.whiteSpace = 'pre';
@@ -362,7 +362,7 @@ export async function exportToSigma() {
 // List items from the given source into #import-grid.
 async function listImportSource(src) {
   const grid = document.getElementById('import-grid');
-  grid.innerHTML = '<p style="opacity:.6;padding:1rem;">Loading…</p>';
+  grid.innerHTML = '<p class="grid-msg">Loading…</p>';
 
   if (src === 'imagevendor') {
     await listImageVendor(grid);
@@ -378,13 +378,13 @@ async function listSigmaProjects(grid) {
     projects = Array.isArray(data) ? data : (data.projects || []);
   } catch (err) {
     if (redirectIfSignedOut(err)) return;
-    grid.innerHTML = '<p style="color:var(--c-err,red);padding:1rem;">Failed to load projects.</p>';
+    grid.innerHTML = '<p class="grid-msg grid-msg-err">Failed to load projects.</p>';
     return;
   }
 
   grid.innerHTML = '';
   if (projects.length === 0) {
-    grid.innerHTML = '<p style="opacity:.6;padding:1rem;">No Sigma projects found.</p>';
+    grid.innerHTML = '<p class="grid-msg">No Sigma projects found.</p>';
     return;
   }
 
@@ -423,7 +423,7 @@ async function listSigmaProjects(grid) {
             offscreen.setAttribute('width', '100');
             offscreen.setAttribute('height', '100');
             offscreen.setAttribute('viewBox', '0 0 100 100');
-            offscreen.style.cssText = 'visibility:hidden;position:absolute;left:-9999px;top:-9999px';
+            offscreen.setAttribute('class', 'offscreen-svg-clip');
             document.body.appendChild(offscreen);
           }
         }
@@ -483,13 +483,13 @@ async function listImageVendor(grid) {
     images = Array.isArray(data) ? data : (data.images || []);
   } catch (err) {
     if (redirectIfSignedOut(err)) return;
-    grid.innerHTML = '<p style="color:var(--c-err,red);padding:1rem;">Failed to load images.</p>';
+    grid.innerHTML = '<p class="grid-msg grid-msg-err">Failed to load images.</p>';
     return;
   }
 
   grid.innerHTML = '';
   if (images.length === 0) {
-    grid.innerHTML = '<p style="opacity:.6;padding:1rem;">No ImageVendor images found.</p>';
+    grid.innerHTML = '<p class="grid-msg">No ImageVendor images found.</p>';
     return;
   }
 

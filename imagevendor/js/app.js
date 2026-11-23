@@ -394,7 +394,8 @@ function refreshLayersPanel() {
     visBtn.setAttribute('aria-label', visBtn.title + ': ' + layer.name);
     visBtn.setAttribute('aria-pressed', String(layer.visible));
     visBtn.textContent = layer.visible ? '👁' : '○';
-    visBtn.style.cssText = 'background:none;border:none;cursor:pointer;padding:0 4px;font-size:14px;opacity:' + (layer.visible ? '1' : '0.4');
+    visBtn.classList.add('layer-vis-inline');
+    visBtn.style.opacity = layer.visible ? '1' : '0.4';
     visBtn.addEventListener('click', (e) => {
       e.stopPropagation();
       pushHistory();
@@ -407,14 +408,14 @@ function refreshLayersPanel() {
     const nameSpan = document.createElement('span');
     nameSpan.className = 'layer-name';
     nameSpan.textContent = layer.name;
-    nameSpan.style.cssText = 'flex:1;padding:0 4px;overflow:hidden;text-overflow:ellipsis;white-space:nowrap;cursor:default;';
+    nameSpan.classList.add('layer-name-inline');
 
     nameSpan.addEventListener('dblclick', (e) => {
       e.stopPropagation();
       const inp = document.createElement('input');
       inp.type = 'text';
       inp.value = layer.name;
-      inp.style.cssText = 'flex:1;padding:0 2px;font:inherit;background:var(--surface,#2a2a2a);color:inherit;border:1px solid var(--accent,#c9a227);outline:none;';
+      inp.className = 'layer-name-edit';
       nameSpan.replaceWith(inp);
       inp.focus();
       inp.select();
@@ -425,9 +426,8 @@ function refreshLayersPanel() {
         pushHistory();
         layer.name = inp.value.trim() || layer.name;
         const ns2 = document.createElement('span');
-        ns2.className = 'layer-name';
+        ns2.className = 'layer-name layer-name-inline';
         ns2.textContent = layer.name;
-        ns2.style.cssText = nameSpan.style.cssText;
         inp.replaceWith(ns2);
         scheduleAutosave();
         // re-attach dblclick won't survive DOM swap — just refresh
@@ -974,11 +974,11 @@ async function loadGalleryList() {
 async function populateGalleryGrid() {
   const grid = document.getElementById('gallery-grid');
   if (!grid) return;
-  grid.innerHTML = '<p style="opacity:.6;padding:1rem;">Loading…</p>';
+  grid.innerHTML = '<p class="grid-msg">Loading…</p>';
   const list = await loadGalleryList();
   grid.innerHTML = '';
   if (list.length === 0) {
-    grid.innerHTML = '<p style="opacity:.6;padding:1rem;">No images yet.</p>';
+    grid.innerHTML = '<p class="grid-msg">No images yet.</p>';
     return;
   }
   for (const img of list) {

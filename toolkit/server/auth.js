@@ -1,27 +1,32 @@
 // Authentication routes: register, login, logout, current user, email
-// verification and password reset (the last two only when mail is configured).
+// verification and password reset (the last two only when mail is configured),
+// plus "Continue with Google" (google.js, only when keys are in toolkit/.env).
 const express = require('express');
 const crypto = require('crypto');
 const bcrypt = require('bcryptjs');
 const { db, save } = require('./store');
 const {
   createSession, destroySession, requireAuth, currentSessionKey, revokeSessions,
-  loginLimiter, registerLimiter, authLimiter,
+  loginLimiter, registerLimiter, authLimiter, mfaLimiter,
   loginLocked, recordLoginFailure, recordLoginSuccess,
   validName,
 } = require('./security');
-const { normalizeEmail, checkDomain, dnsCheckEnabled } = require('./email-check');
+const { normalizeEmail, checkSignupAddress } = require('./email-check');
 const { checkPassword, MIN_LENGTH } = require('./passwords');
 const { audit, tag } = require('./audit');
 const { PRIVACY_VERSION } = require('./policy');
 const mailer = require('./mailer');
+const google = require('./google');
+const mfa = require('./mfa');
 
 const router = express.Router();
+router.use('/google', google.router);
 const BCRYPT_COST = 11;
 // A real hash of a throwaway value: comparing against it costs the same as a genuine
 // check, so unknown-email logins are indistinguishable from wrong-password logins.
 const DUMMY_HASH = bcrypt.hashSync('toolkit-timing-equalizer', BCRYPT_COST);
-const LOGIN_FAILED = 'Incorrect email or password. After several failed attempts, sign-in pauses for 15 minutes.';
+const LOGIN_FAILED = 'Incorrect email or password. If you created your account with Google, use Continue with Google. ' +
+  'After several failed attempts, sign-in pauses for 15 minutes.';
 const LINK_BAD = 'This link is invalid or has expired. Request a new one.';
 const CODE_BAD = 'That code is wrong or has expired. Check the latest email, or send a new code.';
 const CODE_TTL = 15 * 60 * 1000;
@@ -39,6 +44,10 @@ const SIGNUPS_PAUSED = 'Sign-ups are paused: this Toolkit cannot send email yet,
 
 function publicUser(u) {
   return { id: u.id, name: u.name, email: u.email };
+}
+// Present (true) only when TOOLKIT_REQUIRE_MFA=1 and the new session must first set up two-step sign-in.
+function setupFlag(sessionKey) {
+  return db.sessions[sessionKey] && db.sessions[sessionKey].mfaSetup ? { mfaSetupRequired: true } : {};
 }
 
 // ---------- one-time email tokens (only a hash is stored) ----------
@@ -87,18 +96,24 @@ router.get('/config', (req, res) => {
   res.json({
     emailEnabled: mailer.configured(), passwordMinLength: MIN_LENGTH, privacyVersion: PRIVACY_VERSION,
     signupsOpen: !verificationRequired() || mailer.configured(),
+    googleEnabled: google.configured(),
+    mfaRequired: process.env.TOOLKIT_REQUIRE_MFA === '1',
     privacyContact: (process.env.TOOLKIT_PRIVACY_CONTACT || '').trim().slice(0, 200) || null,
   });
 });
 
 router.post('/register', registerLimiter, async (req, res, next) => {
   try {
-    const { name, email, password, acceptTerms } = req.body || {};
+    const { name, email, password, confirmPassword, acceptTerms } = req.body || {};
     if (!validName(name)) return res.status(400).json({ error: 'Enter a name (1-60 characters, no control characters).' });
     const parsed = normalizeEmail(email);
-    if (!parsed.ok) return res.status(400).json({ error: parsed.reason });
+    if (!parsed.ok) return res.status(400).json({ error: parsed.reason, field: 'email' });
     const weak = checkPassword(password, { email: parsed.email, name });
-    if (weak) return res.status(400).json({ error: weak });
+    if (weak) return res.status(400).json({ error: weak, field: 'password' });
+    // The sign-up form asks for the password twice; API clients may omit the copy.
+    if (confirmPassword !== undefined && confirmPassword !== password) {
+      return res.status(400).json({ error: 'The two passwords do not match.', field: 'confirm' });
+    }
     if (acceptTerms !== true) {
       return res.status(400).json({ error: 'Please accept the privacy notice to create an account.' });
     }
@@ -107,10 +122,12 @@ router.post('/register', registerLimiter, async (req, res, next) => {
       audit('register.paused', { req, throttleKey: 'paused', throttleMs: 600000 });
       return res.status(503).json({ error: SIGNUPS_PAUSED, code: 'signups_paused' });
     }
-    // Refuse domains that definitively cannot receive mail (typos, made-up domains).
+    // Only real mailboxes at established providers: refuses domains that cannot receive
+    // mail, disposable inboxes, typos of big providers and unrecognised mail hosts.
     // Transient DNS trouble never blocks a signup; the emailed code is the real proof.
-    if (dnsCheckEnabled() && await checkDomain(parsed.domain) === 'undeliverable') {
-      return res.status(400).json({ error: 'That email domain does not appear to accept mail. Check for typos.' });
+    const address = await checkSignupAddress(parsed);
+    if (!address.ok) {
+      return res.status(400).json({ error: address.reason, field: 'email', code: 'email_' + address.code, suggestion: address.suggestion });
     }
     const normalized = parsed.email;
     // Hash first so new and existing addresses cost the same amount of work.
@@ -129,11 +146,11 @@ router.post('/register', registerLimiter, async (req, res, next) => {
     }
     if (existing) {
       audit('register.duplicate', { req, detail: { email: tag(normalized) }, throttleKey: 'dup:' + tag(normalized) });
-      if (!mailOn) return res.status(409).json({ error: 'An account with that email already exists.' });
+      if (!mailOn) return res.status(409).json({ error: 'An account with that email already exists. Sign in instead (or use Continue with Google if you created it that way).' });
       // With mail enabled the response is identical for new and existing addresses, so
       // the form cannot be used to discover who has an account. The owner is told instead.
       sendLater({ to: existing.email, subject: 'Someone tried to use your email address on Toolkit',
-        text: `Someone tried to create a Toolkit account with this email address, but an account already exists.\n\nIf this was you, sign in or reset your password at ${mailer.baseUrl(req)}/auth\nIf not, you can ignore this message; nothing has changed.\n` }, req, existing.id);
+        text: `Someone tried to create a Toolkit account with this email address, but an account already exists.\n\nIf this was you, sign in at ${mailer.baseUrl(req)}/auth (with your password, or with Continue with Google if you created the account that way), or reset your password there.\nIf not, you can ignore this message; nothing has changed.\n` }, req, existing.id);
       return res.status(202).json({ verificationRequired: true });
     }
     const user = {
@@ -155,8 +172,8 @@ router.post('/register', registerLimiter, async (req, res, next) => {
       return res.status(202).json({ verificationRequired: true });
     }
     user.lastLoginAt = Date.now();
-    createSession(res, user.id, req);
-    res.status(201).json({ user: publicUser(user) });
+    const key = createSession(res, user.id, req);
+    res.status(201).json({ user: publicUser(user), ...setupFlag(key) });
   } catch (err) { next(err); }
 });
 
@@ -166,10 +183,15 @@ router.post('/login', loginLimiter, async (req, res, next) => {
     if (typeof email !== 'string' || email.length > 254 || typeof password !== 'string' || password.length > 128) {
       return res.status(400).json({ error: 'Email and password are required.' });
     }
-    const normalized = email.trim().toLowerCase();
+    // The same normalisation as sign-up, so an internationalised domain typed in its
+    // Unicode form (bücher.de) finds the account stored under its punycode form.
+    const parsed = normalizeEmail(email);
+    const normalized = parsed.ok ? parsed.email : email.trim().toLowerCase();
     const user = db.users.find(u => u.email === normalized);
-    // Always run exactly one hash comparison, whatever the outcome.
-    const ok = await bcrypt.compare(password, user ? user.passwordHash : DUMMY_HASH);
+    // Always run exactly one hash comparison, whatever the outcome. Accounts created with
+    // Google have no password; they compare against the dummy hash and always fail.
+    const hash = user && user.passwordHash ? user.passwordHash : DUMMY_HASH;
+    const ok = await bcrypt.compare(password, hash) && hash !== DUMMY_HASH;
     const locked = !!user && loginLocked(user);
     if (!user || !ok || locked) {
       if (user && !locked) {
@@ -192,14 +214,68 @@ router.post('/login', loginLimiter, async (req, res, next) => {
       if (mailer.configured() && !coolingDown(user, 'verify')) sendLater(verifyMail(user), req, user.id);
       return res.status(403).json({ error: 'Confirm your email address first: enter the 6-digit code we emailed you.', code: 'email_not_verified' });
     }
+    const prior = currentSessionKey(req);
+    if (user.mfa && user.mfa.enabled) {
+      // Password is right, but no session yet: a short-lived challenge cookie lets the
+      // next request supply the authenticator code.
+      mfa.startChallenge(res, user.id, 'password', prior);
+      audit('login.mfa-challenge', { req, userId: user.id, detail: { method: 'password' } });
+      return res.json({ mfaRequired: true });
+    }
     recordLoginSuccess(user);
     // A fresh session id on every login prevents session fixation.
-    const prior = currentSessionKey(req);
     if (prior && db.sessions[prior]) { delete db.sessions[prior]; save(); }
-    createSession(res, user.id, req);
+    const key = createSession(res, user.id, req);
     audit('login.success', { req, userId: user.id });
-    res.json({ user: publicUser(user) });
+    res.json({ user: publicUser(user), ...setupFlag(key) });
   } catch (err) { next(err); }
+});
+
+// ---------- two-step sign-in ----------
+const MFA_BAD = 'That code is not right. Check your authenticator app and try again.';
+const MFA_EXPIRED = 'Your sign-in expired. Sign in again.';
+function mfaExpired(res, key) {
+  if (key) mfa.dropChallenge(key);
+  mfa.clearChallengeCookie(res);
+  return res.status(401).json({ error: MFA_EXPIRED, code: 'mfa_expired' });
+}
+
+router.post('/mfa/verify', mfaLimiter, (req, res) => {
+  const found = mfa.readChallenge(req);
+  if (!found) return mfaExpired(res, null);
+  const { key, entry } = found;
+  const user = db.users.find(u => u.id === entry.userId);
+  if (!user || !user.mfa || !user.mfa.enabled || loginLocked(user)) return mfaExpired(res, key);
+  const code = req.body && req.body.code;
+  const result = typeof code === 'string' && code.length <= 40 ? mfa.checkUserCode(user, code) : { ok: false };
+  if (!result.ok) {
+    entry.attempts++;
+    recordLoginFailure(user);
+    audit('mfa.fail', { req, userId: user.id, detail: { method: entry.method }, throttleKey: 'mf:' + user.id, throttleMs: 2000 });
+    const attemptsLeft = Math.max(0, mfa.CHALLENGE_ATTEMPTS - entry.attempts);
+    if (attemptsLeft === 0) { mfa.dropChallenge(key); mfa.clearChallengeCookie(res); }
+    return res.status(400).json({ error: MFA_BAD, code: 'mfa_invalid', attemptsLeft });
+  }
+  mfa.dropChallenge(key);
+  mfa.clearChallengeCookie(res);
+  if (entry.priorKey && db.sessions[entry.priorKey]) { delete db.sessions[entry.priorKey]; save(); }
+  recordLoginSuccess(user);
+  createSession(res, user.id, req, { method: entry.method });
+  audit('login.success', { req, userId: user.id, detail: { mfa: true, method: entry.method } });
+  const body = { user: publicUser(user) };
+  if (result.kind === 'recovery') {
+    body.recoveryUsed = true;
+    body.recoveryRemaining = result.remaining;
+    audit('mfa.recovery-used', { req, userId: user.id, detail: { remaining: result.remaining } });
+  }
+  res.json(body);
+});
+
+router.post('/mfa/cancel', (req, res) => {
+  const found = mfa.readChallenge(req);
+  if (found) mfa.dropChallenge(found.key);
+  mfa.clearChallengeCookie(res);
+  res.json({ ok: true });
 });
 
 router.post('/logout', (req, res) => {
@@ -241,8 +317,8 @@ router.post('/verify-email', authLimiter, (req, res) => {
   audit('email.verified', { req, userId: user.id });
   const prior = currentSessionKey(req);
   if (prior && db.sessions[prior]) delete db.sessions[prior];
-  createSession(res, user.id, req);
-  res.json({ user: publicUser(user) });
+  const key = createSession(res, user.id, req, { method: 'email-code' });
+  res.json({ user: publicUser(user), ...setupFlag(key) });
 });
 
 router.post('/resend-verification', authLimiter, (req, res) => {

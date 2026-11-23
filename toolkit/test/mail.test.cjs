@@ -45,7 +45,7 @@ async function mailTo(address, subjectPart, since = 0) {
 }
 const codeIn = message => /\b(\d{6})\b/.exec(message.subject)[1];
 const tokenIn = message => /#token=([A-Za-z0-9_-]+)/.exec(message.text)[1];
-const account = n => ({ name: 'Mail Tester', email: `mail${n}@example.com`, password: 'violet-harbor-lamp-42', acceptTerms: true });
+const account = n => ({ name: 'Mail Tester', email: `mail${n}@example.com`, password: 'Violet-Harbor-Lamp-42', acceptTerms: true });
 async function confirmed(n) {
   const a = account(n);
   const start = outbox.length;
@@ -144,9 +144,9 @@ test('signing in to an unconfirmed account emails a fresh code (rate limited by 
 
 test('an unconfirmed sign-up cannot hold an address hostage; confirmed accounts cannot be taken over', async () => {
   // Someone registers an address they do not own; the real owner signs up later.
-  const squat = { ...account(4), name: 'Squatter', password: 'squatter-password-99' };
+  const squat = { ...account(4), name: 'Squatter', password: 'Squatter-Password-99' };
   await call('/api/auth/register', { method: 'POST', body: squat });
-  const owner = { ...account(4), name: 'Real Owner', password: 'maple-lantern-river-77' };
+  const owner = { ...account(4), name: 'Real Owner', password: 'Maple-Lantern-River-77' };
   const start = outbox.length;
   const r = await call('/api/auth/register', { method: 'POST', body: owner });
   assert.equal(r.status, 202);
@@ -160,7 +160,7 @@ test('an unconfirmed sign-up cannot hold an address hostage; confirmed accounts 
   // Once confirmed, a new sign-up for the same address changes nothing and warns the owner.
   const before = JSON.stringify(db.users.find(u => u.email === owner.email).passwordHash);
   const start2 = outbox.length;
-  const again = await call('/api/auth/register', { method: 'POST', body: { ...owner, password: 'attacker-password-55' } });
+  const again = await call('/api/auth/register', { method: 'POST', body: { ...owner, password: 'Attacker-Password-55' } });
   assert.equal(again.status, 202, 'same answer as a new address (no enumeration)');
   assert.ok(await mailTo(owner.email, 'Someone tried', start2));
   assert.equal(JSON.stringify(db.users.find(u => u.email === owner.email).passwordHash), before);
@@ -182,12 +182,12 @@ test('password reset: single-use, policy-checked, expires, signs everything out'
   const token = tokenIn(await mailTo(a.email, 'Reset', start));
   assert.equal((await call('/api/auth/reset', { method: 'POST', body: { token, password: 'short' } })).status, 400);
   assert.equal((await call('/api/auth/reset', { method: 'POST', body: { token, password: 'Password1234!' } })).status, 400);
-  const done = await call('/api/auth/reset', { method: 'POST', body: { token, password: 'cobalt-meadow-seventeen' } });
+  const done = await call('/api/auth/reset', { method: 'POST', body: { token, password: 'Cobalt-Meadow-17' } });
   assert.equal(done.status, 200, 'the link survived the rejected attempts');
-  assert.equal((await call('/api/auth/reset', { method: 'POST', body: { token, password: 'another-long-password-9' } })).status, 400, 'single use');
+  assert.equal((await call('/api/auth/reset', { method: 'POST', body: { token, password: 'Another-Long-Password-9' } })).status, 400, 'single use');
   assert.equal((await call('/api/auth/me', { cookie: a.cookie })).status, 401, 'existing sessions are signed out');
   assert.equal((await call('/api/auth/login', { method: 'POST', body: { email: a.email, password: a.password } })).status, 401);
-  assert.equal((await call('/api/auth/login', { method: 'POST', body: { email: a.email, password: 'cobalt-meadow-seventeen' } })).status, 200);
+  assert.equal((await call('/api/auth/login', { method: 'POST', body: { email: a.email, password: 'Cobalt-Meadow-17' } })).status, 200);
   assert.ok(await mailTo(a.email, 'password was changed', start), 'the owner is told the password changed');
 
   start = outbox.length;
@@ -195,7 +195,7 @@ test('password reset: single-use, policy-checked, expires, signs everything out'
   await call('/api/auth/forgot', { method: 'POST', body: { email: a.email } });
   const stale = tokenIn(await mailTo(a.email, 'Reset', start));
   db.users.find(u => u.email === a.email).reset.expires = Date.now() - 1;
-  assert.equal((await call('/api/auth/reset', { method: 'POST', body: { token: stale, password: 'yet-another-long-password-3' } })).status, 400);
+  assert.equal((await call('/api/auth/reset', { method: 'POST', body: { token: stale, password: 'Yet-Another-Long-Password-3' } })).status, 400);
 });
 
 test('reset links are built from the server, never from a forged Host header', async () => {

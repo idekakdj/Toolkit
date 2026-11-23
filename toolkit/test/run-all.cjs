@@ -8,6 +8,8 @@ const suites = [
   ['--test', 'toolkit/test/server.test.js'],
   ['--test', 'toolkit/test/security.test.cjs'],
   ['--test', 'toolkit/test/mail.test.cjs'],
+  ['--test', 'toolkit/test/google.test.cjs'],
+  ['--test', 'toolkit/test/mfa.test.cjs'],
   ['--test', 'toolkit/test/upload-guard.test.cjs'],
   ['--test', 'toolkit/test/local-runtime.test.cjs'],
   ['--test', 'toolkit/test/migration.test.cjs'],

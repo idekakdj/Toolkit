@@ -12,7 +12,7 @@ test('browser/desktop reuse one server; independent startup cannot overwrite sha
     assert.equal(reused.origin, runtime.origin); assert.equal(reused.reused, true);
     const registered = await fetch(runtime.origin + '/api/auth/register', { method: 'POST',
       headers: { 'Content-Type': 'application/json', 'X-Requested-With': 'test' },
-      body: JSON.stringify({ name: 'Shared test', email: 'shared@example.com', password: 'violet-harbor-lamp-42', acceptTerms: true }) });
+      body: JSON.stringify({ name: 'Shared test', email: 'shared@example.com', password: 'Violet-Harbor-Lamp-42', acceptTerms: true }) });
     assert.equal(registered.status, 201);
     require('../server/store').flush();
     const dbPath = path.join(dataDir, 'db.json'), snapshot = fs.readFileSync(dbPath, 'utf8');

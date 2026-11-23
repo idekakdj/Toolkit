@@ -85,7 +85,8 @@ Breach record template: `date detected | date occurred | summary | data and numb
 |---|---|---|
 | Account, projects, paintings, images | Until the user deletes them | Erased immediately; backup copy replaced |
 | Sessions | Hosted: 12 h idle / 7 d maximum. Local: 7 d idle / 30 d maximum | Removed automatically |
-| Verification and reset tokens | 24 h and 1 h, single use | Removed on use or expiry check |
+| Email confirmation code | 15 min, 5 attempts; unconfirmed sign-ups purged after 7 days | Removed on use, expiry or purge |
+| Password reset token | 1 h, single use | Removed on use or expiry check |
 | Security log | `TOOLKIT_AUDIT_RETENTION_DAYS` (default 365, minimum 30) | Files deleted automatically |
 | Operator backups | Your schedule (recommend 30 days) | Securely deleted |
 

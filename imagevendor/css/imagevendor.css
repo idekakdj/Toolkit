@@ -1159,3 +1159,35 @@ button:focus-visible, .layer-row:focus-visible, input:focus-visible, select:focu
 }
 #iv-overlay { touch-action: none; }
 button.import-item { color: inherit; font: inherit; text-align: left; }
+
+/* palette swatch colours (moved from inline styles for strict CSP) */
+.swatch[data-color="#0e1d3d"] { background-color: #0e1d3d; }
+.swatch[data-color="#c9a227"] { background-color: #c9a227; }
+.swatch[data-color="#ffffff"] { background-color: #ffffff; }
+.swatch[data-color="#000000"] { background-color: #000000; }
+.swatch[data-color="#e0342f"] { background-color: #e0342f; }
+.swatch[data-color="#f08a24"] { background-color: #f08a24; }
+.swatch[data-color="#43a047"] { background-color: #43a047; }
+.swatch[data-color="#2a6fdb"] { background-color: #2a6fdb; }
+.swatch[data-color="#9c27b0"] { background-color: #9c27b0; }
+.swatch[data-color="#888888"] { background-color: #888888; }
+
+/* moved from inline styles (strict CSP) */
+.grid-msg { opacity: .6; padding: 1rem; }
+.grid-msg.grid-msg-info { opacity: .75; }
+.import-item { cursor: pointer; }
+.import-card-img { max-width: 100%; display: block; }
+.import-card-name { padding: .4rem .2rem; font-size: .85em; }
+.layer-row .layer-vis.layer-vis-inline.layer-vis-inline { background: none; border: none; cursor: pointer; padding: 0 4px; font-size: 14px; }
+.layer-row .layer-name.layer-name-inline.layer-name-inline { flex: 1; padding: 0 4px; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; cursor: default; }
+.layer-row .layer-name-edit { flex: 1; padding: 0 2px; font: inherit; background: var(--surface, #2a2a2a); color: inherit; border: 1px solid var(--accent, #c9a227); outline: none; }
+.canvas-text-input {
+  position: fixed;
+  font-family: 'Segoe UI', system-ui, sans-serif;
+  background: rgba(255,255,255,0.15);
+  border: 1px dashed rgba(255,255,255,0.6);
+  outline: none;
+  padding: 2px 4px;
+  min-width: 80px;
+  z-index: 9999;
+}
