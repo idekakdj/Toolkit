@@ -295,20 +295,6 @@ body.editor {
   z-index: 20;
 }
 
-.iv-home {
-  display: flex;
-  align-items: center;
-  justify-content: center;
-  width: 34px;
-  height: 34px;
-  border-radius: 5px;
-  color: rgba(255,255,255,0.55);
-  text-decoration: none;
-  transition: background 0.15s, color 0.15s;
-  flex-shrink: 0;
-}
-.iv-home:hover { background: var(--navy-3); color: #fff; }
-.iv-home svg { width: 18px; height: 18px; display: block; }
 
 .tb-brand {
   display: flex;

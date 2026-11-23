@@ -43,8 +43,6 @@ button { font-family: var(--font); }
 
 .tb-left { display: flex; align-items: center; gap: 10px; min-width: 0; }
 .tb-home { display: grid; place-items: center; border-radius: 8px; padding: 4px; }
-.tb-toolkit { display: grid; place-items: center; border-radius: 8px; padding: 6px; color: inherit; }
-.tb-toolkit:hover { background: var(--panel-2); }
 
 #project-name {
   background: transparent;

@@ -1,4 +1,4 @@
-const { app, BrowserWindow, Menu, dialog, shell, session } = require('electron');
+const { app, BrowserWindow, Menu, Tray, dialog, shell, session } = require('electron');
 const path = require('node:path');
 const fs = require('node:fs');
 const crypto = require('node:crypto');
@@ -30,10 +30,41 @@ app.on('web-contents-created', (_event, contents) => {
   contents.on('will-attach-webview', event => event.preventDefault());
 });
 const hasLock = app.requestSingleInstanceLock();
-let window, runtime;
+let window, runtime, tray;
+let quitting = false;          // true once a real quit starts; until then closing the window only hides it
+function showWindow() {
+  if (!window) return;
+  if (window.isMinimized()) window.restore();
+  window.show();
+  window.focus();
+}
+// Toolkit lives in the Windows notification area (system tray): closing the window hides it
+// there, so open tabs and unsaved work stay as they were; "Quit Toolkit" really exits.
+function createTray() {
+  tray = new Tray(path.join(__dirname, 'icon.ico'));
+  tray.setToolTip('Toolkit');
+  tray.setContextMenu(Menu.buildFromTemplate([
+    { label: 'Open Toolkit', click: showWindow },
+    { type: 'separator' },
+    { label: 'Quit Toolkit', click: () => app.quit() },
+  ]));
+  tray.on('click', showWindow);
+  tray.on('double-click', showWindow);
+}
+// The first time the window is closed to the tray, say so once (remembered per profile).
+function trayNoticeOnce() {
+  const flag = path.join(app.getPath('userData'), 'tray-notice-shown');
+  if (fs.existsSync(flag)) return;
+  try { fs.writeFileSync(flag, new Date().toISOString()); } catch { /* best effort */ }
+  if (tray && process.platform === 'win32') {
+    tray.displayBalloon({ iconType: 'info', title: 'Toolkit is still running',
+      content: 'Toolkit keeps running in the system tray. Click the icon to open it, or right-click it and choose Quit Toolkit.' });
+  }
+}
 if (!hasLock) app.quit();
 else {
-  app.on('second-instance', () => { if (window) { if (window.isMinimized()) window.restore(); window.focus(); } });
+  app.on('second-instance', showWindow);
+  app.on('before-quit', () => { quitting = true; });
   app.whenReady().then(async () => {
     const dataDir = path.join(app.getPath('userData'), 'data');
     const assetRoot = app.isPackaged ? path.join(process.resourcesPath, 'workspace') : path.resolve(__dirname, '../..');
@@ -130,6 +161,7 @@ else {
         buttons: ['Stay', 'Discard changes'], defaultId: 0, cancelId: 0,
       });
       if (choice === 1) event.preventDefault();
+      else quitting = false;      // "Stay" cancels a quit: closing the window hides it to the tray again
     });
     Menu.setApplicationMenu(Menu.buildFromTemplate([
       { label: 'Toolkit', submenu: [
@@ -173,6 +205,13 @@ else {
       }) }] },
     ]));
     window.once('ready-to-show', () => { if (!process.env.TOOLKIT_DESKTOP_TEST_DIR) window.show(); });
+    createTray();
+    window.on('close', event => {
+      if (quitting) return;
+      event.preventDefault();
+      window.hide();
+      trayNoticeOnce();
+    });
     window.on('closed', () => { window = null; });
     await window.loadURL(runtime.origin);
   }).catch(err => {
@@ -181,6 +220,7 @@ else {
   });
   app.on('window-all-closed', () => app.quit());
   app.on('will-quit', event => {
+    if (tray) { tray.destroy(); tray = null; }
     if (!runtime) return;
     event.preventDefault();
     const closing = runtime; runtime = null;
