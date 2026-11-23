@@ -1,6 +1,21 @@
 # Windows desktop build verification
 
-**Current release: 1.3.0** (2026-11-22). Built `dist/Toolkit-Setup-1.3.0-x64.exe` (same toolchain and
+**Current release: 1.4.0** (2026-11-22). Built `dist/Toolkit-Setup-1.4.0-x64.exe` (Electron 44.10.0,
+electron-builder 26.15.3; SHA-256 in `dist/SHA256SUMS.txt`; npm audit 0 vulnerabilities). Installed on
+the user's PC 2026-11-22 (silent in-place update after the user closed the running app; data folder
+untouched, live database hash unchanged).
+
+What changed in 1.4.0: optional two-step sign-in with an authenticator app (TOTP) and recovery codes;
+a strict style policy (CSP `style-src 'self'`, no inline styles in any app); a new 404 page; draft Terms
+of Service and a rewritten draft Privacy Policy; and, temporarily, email sign-ups no longer pause while
+no mail server is configured (accounts open straight away without an emailed code, and any deliverable
+domain is accepted; disposable inboxes and provider typos are still refused). Verified on the packaged
+app and again on the installed app, each on a disposable profile with default settings: app window
+opens, sign-ups open with no mail configured, a Gmail sign-up is created and signed in, a mailinator
+address is refused, two-step setup returns a key and QR code, `/terms` and the 404 page are served, the
+CSP has no `unsafe-inline`; no `.env`, database or mail settings are packaged.
+
+**Previous release: 1.3.0** (2026-11-22). Built `dist/Toolkit-Setup-1.3.0-x64.exe` (same toolchain and
 audit result as below; SHA-256 in `dist/SHA256SUMS.txt`). Installed on the user's PC 2026-11-22 (silent in-place update; data folder untouched, re-probed after install).
 
 What changed in 1.3.0: sign-in with Google ("Continue with Google"; on the desktop app the Google step
