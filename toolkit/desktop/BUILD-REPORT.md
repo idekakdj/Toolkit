@@ -1,6 +1,22 @@
 # Windows desktop build verification
 
-**Current release: 1.4.0** (2026-11-22). Built `dist/Toolkit-Setup-1.4.0-x64.exe` (Electron 44.10.0,
+**Current release: 1.5.0** (2026-11-23). Built `dist/Toolkit-Setup-1.5.0-x64.exe` (Electron 45.4.1,
+electron-builder 26.18.0; SHA-256 in `dist/SHA256SUMS.txt`; npm audit 0 vulnerabilities). Installed on
+the user's PC 2026-11-23 (silent in-place update while the app was closed; live database hash unchanged).
+
+What changed in 1.5.0: a central dashboard with each app's recent projects and browser-style tabs (Home
+button, several projects per app, arrow-key and trackpad-swipe switching, tabs remembered per user, a
+Placeholder tab open by default); app landing pages are skipped once signed in; app logos no longer link
+anywhere and each app's Toolkit icon goes home; framing limited to the same origin. Also the dependency
+updates (Electron 45, helmet 8, express-rate-limit 8, bcryptjs 3) and the review fixes (safe email
+correction, durable erasure, no plaintext backup after encryption, capped flush delay, ImageVendor
+rename-only saves and layer focus, clearer save errors). Verified on the packaged app and again on the
+installed app, each on a disposable profile driven over CDP: security headers, shell assets, sign-up
+without an emailed code, `/` is the shell with a default Placeholder tab, a painting opens inside a tab
+(embedded, logo not a link), ArrowLeft inside the app switches tabs, and Placeholder's Toolkit link goes
+Home; no `.env`, database or mail settings are packaged.
+
+**Previous release: 1.4.0** (2026-11-22). Built `dist/Toolkit-Setup-1.4.0-x64.exe` (Electron 44.10.0,
 electron-builder 26.15.3; SHA-256 in `dist/SHA256SUMS.txt`; npm audit 0 vulnerabilities). Installed on
 the user's PC 2026-11-22 (silent in-place update after the user closed the running app; data folder
 untouched, live database hash unchanged).
