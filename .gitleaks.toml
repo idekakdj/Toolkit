@@ -15,4 +15,6 @@ regexes = [
   '''GEZDGNBVGY3TQOJQGEZDGNBVGY3TQOJQ''',   # RFC 6238 test secret ("12345678901234567890")
   '''JBSWY3DPEHPK3PXPJBSWY3DPEHPK3PXP''',   # toolkit/test/mfa.test.cjs fake TOTP secret
   '''PENDINGSECRETPENDINGSECRET234567''',   # toolkit/test/mfa.test.cjs fake pending secret
+  # Made-up passwords that the test suite registers fake @example.com accounts with.
+  '''(?:Violet-Harbor-Lamp-4[23]|Maple-Lantern-River-77|Cobalt-Meadow-17|Test-Password-123|Squatter-Pass(?:word)?-99|Attacker-Password-55|(?:Yet-)?Another-Long-Password-[39]|Anything-At-All-1|[Ww]rong-[Pp]assword(?:-\w*)?)''',
 ]
