@@ -91,7 +91,9 @@ function verifyMail(user) {
 function purgeUnverified() {
   const cutoff = Date.now() - UNVERIFIED_TTL;
   const before = db.users.length;
-  db.users = db.users.filter(u => !(u.emailVerified === false && u.createdAt < cutoff));
+  // Measured from when the account became unverified (an admin address correction can
+  // un-verify an established account), falling back to sign-up time.
+  db.users = db.users.filter(u => !(u.emailVerified === false && (u.unverifiedSince || u.createdAt) < cutoff));
   if (db.users.length !== before) save();
 }
 setInterval(purgeUnverified, 60 * 60 * 1000).unref();

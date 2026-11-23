@@ -48,14 +48,17 @@ ciphertext, so backups are protected too, **but they are useless without the key
 
 **Enabling encryption on an existing install:** set `TOOLKIT_DATA_KEY` and restart. The first write
 encrypts the database after verifying the encrypted copy, and leaves one plaintext copy,
-`db.json.premigration`. Confirm everything works, then **delete that file securely**.
+`db.json.premigration`. Confirm everything works, then **delete that file securely**. The
+migration replaces `db.json.bak` with a copy of the encrypted file. If you enabled encryption on an
+older version, `db.json.bak` may still be plaintext (it does not start with `TKENC1`): delete it
+securely too, and also any plaintext copies you made yourself (operator backups, snapshots).
 
 ## 5. Handling individual-rights requests
 
 | Request | How |
 |---|---|
 | Access / copy of data | The user downloads it from **Account → Download my data**. If they cannot sign in, verify their identity by another means first, then (service stopped) `node scripts/admin.cjs export <email> file.json` and deliver it securely |
-| Correction | Name: Account page. Email change: verify the owner of the new address out of band, then (service stopped) `node scripts/admin.cjs set-email <old> <new> --yes`; the user is signed out and must re-confirm the address |
+| Correction | Name: Account page. Email change: verify the owner of the new address out of band, then (service stopped) `node scripts/admin.cjs set-email <old> <new> --yes`; the user is signed out, outstanding reset and confirmation codes are revoked, and the address must be re-confirmed within 7 days of the change or the unconfirmed account is removed by the hourly cleanup |
 | Deletion / withdrawal of consent | **Account → Delete account** (immediate and irreversible). For a user who cannot sign in: verify identity, then (service stopped) `node scripts/admin.cjs delete <email> --yes`. Respond within the statutory period (30 days under PIPEDA) |
 | Locked out, no mail server | Verify identity, then `node scripts/admin.cjs revoke-sessions <email>`; with mail configured the user can reset their own password |
 | Complaint | Acknowledge, investigate, correct practices if justified, and tell the user they may also contact the Office of the Privacy Commissioner of Canada |

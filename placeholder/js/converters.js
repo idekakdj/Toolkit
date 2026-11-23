@@ -517,7 +517,7 @@
       const rows = [headers];
       for (const item of data) {
         rows.push(headers.map((h) => {
-          const v = item[h];
+          const v = Object.prototype.hasOwnProperty.call(item, h) ? item[h] : undefined;   // never inherited members such as toString
           if (v === null || v === undefined) return '';
           return typeof v === 'object' ? JSON.stringify(v) : String(v);
         }));

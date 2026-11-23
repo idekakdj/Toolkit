@@ -17,6 +17,8 @@ const DATA_DIR = require('./storage-path').dataDirectory();
 const DB_FILE = path.join(DATA_DIR, 'db.json');
 const MAGIC = Buffer.from('TKENC1');
 const BACKUP_EVERY_MS = 10 * 60 * 1000;
+const DEBOUNCE_MS = 250;
+const MAX_DELAY_MS = 2000;        // a continuous stream of saves can never postpone a flush longer than this
 
 function parseKey(value) {
   if (!value || !value.trim()) return null;
@@ -55,6 +57,8 @@ let dirtyAgain = false;
 let pendingWrite = false;
 let plaintextOnDisk = false;     // true while the file on disk is unencrypted but a key is configured
 let lastBackup = 0;
+let flushError = null;           // last write error, null after a successful flush
+let dirtySince = 0;              // when the oldest unflushed change was made
 
 function load() {
   try {
@@ -87,6 +91,9 @@ function flush() {
   if (writing) { dirtyAgain = true; return; }
   writing = true;
   pendingWrite = false;
+  dirtySince = 0;
+  flushError = null;
+  let migrating = false;
   try {
     fs.mkdirSync(DATA_DIR, { recursive: true, mode: 0o700 });
     const plain = Buffer.from(JSON.stringify(db));
@@ -102,14 +109,24 @@ function flush() {
       if (exists) fs.copyFileSync(DB_FILE, DB_FILE + '.premigration');
       console.warn('[store] Database is now encrypted. A plaintext copy remains at db.json.premigration; delete it securely once you have confirmed the app works.');
       plaintextOnDisk = false;
+      migrating = true;
     }
-    if (exists && Date.now() - lastBackup > BACKUP_EVERY_MS) {
+    // While migrating, the .bak copy is taken after the rename (below) so it is ciphertext.
+    if (exists && !migrating && Date.now() - lastBackup > BACKUP_EVERY_MS) {
       try { fs.copyFileSync(DB_FILE, DB_FILE + '.bak'); lastBackup = Date.now(); } catch { /* backup is best effort */ }
     }
     fs.renameSync(tmp, DB_FILE);
+    if (migrating) {
+      // An older .bak may still hold the plaintext database. Replace it with a copy of the
+      // encrypted file; if that is impossible, remove it rather than leave plaintext behind.
+      const bak = DB_FILE + '.bak';
+      try { fs.copyFileSync(DB_FILE, bak); lastBackup = Date.now(); }
+      catch { try { fs.rmSync(bak, { force: true }); } catch { /* reported by the operator runbook */ } }
+    }
   } catch (err) {
     pendingWrite = true;
     console.error('[store] write failed:', err.message);
+    flushError = err;
   } finally {
     writing = false;
     if (dirtyAgain) { dirtyAgain = false; flush(); }
@@ -118,17 +135,30 @@ function flush() {
 
 function save() {
   pendingWrite = true;
+  if (!dirtySince) dirtySince = Date.now();
   clearTimeout(writeTimer);
-  writeTimer = setTimeout(flush, 250);
+  // Debounce bursts, but never hold an acknowledged change longer than MAX_DELAY_MS.
+  writeTimer = setTimeout(flush, Math.max(0, Math.min(DEBOUNCE_MS, dirtySince + MAX_DELAY_MS - Date.now())));
+}
+
+// Write now; throws if the data could not be written (flush() itself only logs and retries).
+function flushStrict() {
+  clearTimeout(writeTimer);
+  flush();
+  if (pendingWrite || writing) {
+    throw new Error('the database was not written to disk' + (flushError ? ': ' + flushError.message : ''));
+  }
 }
 
 // Write now and replace the rolling backup with the current state. Used after an
 // erasure request so deleted personal data does not linger in db.json.bak.
 function eraseDurably() {
-  clearTimeout(writeTimer);
   pendingWrite = true;
-  flush();
-  try { if (fs.existsSync(DB_FILE)) { fs.copyFileSync(DB_FILE, DB_FILE + '.bak'); lastBackup = Date.now(); } } catch { /* best effort */ }
+  flushStrict();
+  if (fs.existsSync(DB_FILE)) {
+    try { fs.copyFileSync(DB_FILE, DB_FILE + '.bak'); lastBackup = Date.now(); }
+    catch (err) { throw new Error('the backup copy could not be replaced: ' + err.message); }
+  }
 }
 
 // Load before registering shutdown writers: a corrupt file must never be replaced.
@@ -140,4 +170,4 @@ process.on('exit', () => { clearTimeout(writeTimer); flush(); });
 process.on('SIGINT', () => { process.exit(0); });
 process.on('SIGTERM', () => { process.exit(0); });
 
-module.exports = { db, save, flush, eraseDurably, encryptionEnabled: !!KEY };
+module.exports = { db, save, flush, flushStrict, eraseDurably, encryptionEnabled: !!KEY };

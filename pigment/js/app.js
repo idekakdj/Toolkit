@@ -390,8 +390,9 @@ async function doAutosave(isRetry = false) {
       setStatus(conflictMessage, 'error');
       return;
     }
-    setStatus('Save failed', 'error');
-    if (!isRetry) {
+    setStatus('Save failed: ' + err.message, 'error');
+    // Retrying cannot fix a permanent rejection (quota, validation); a later edit saves again.
+    if (!isRetry && (!err.status || err.status >= 500 || err.status === 429)) {
       saveRetryTimer = setTimeout(() => doAutosave(true), 4000);
     }
   } finally {
@@ -733,7 +734,7 @@ document.addEventListener('keydown', (evt) => {
   // guard below so it works even while a text field is focused.
   if ((evt.ctrlKey || evt.metaKey) && evt.shiftKey && evt.code === 'KeyX') {
     evt.preventDefault();
-    window.location.href = '/';
+    window.ToolkitTabs ? window.ToolkitTabs.goHome() : (window.location.href = '/');
     return;
   }
 

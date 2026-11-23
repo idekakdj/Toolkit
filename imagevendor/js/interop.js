@@ -513,7 +513,7 @@ export async function runExport() {
     } else if (mode === 'placeholder') {
       setStatus('Opening Placeholder…', 'saving');
       setTimeout(() => {
-        window.location.href = '/placeholder/convert.html';
+        if (window.ToolkitTabs) window.ToolkitTabs.open('/placeholder/convert.html'); else window.location.href = '/placeholder/convert.html';
       }, 400);
 
     } else {

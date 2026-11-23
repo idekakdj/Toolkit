@@ -22,7 +22,7 @@ async function request(url, method = 'GET', body, session = cookie) {
   return fetch(base + url, { method, headers, redirect: 'manual', body: body === undefined ? undefined : JSON.stringify(body) });
 }
 test('all direct editor URLs enforce the shared sign-in', async () => {
-  for (const url of ['/sigma/dashboard', '/sigma/dashboard.html', '/sigma/editor.html', '/pigment/app', '/pigment/app.html', '/imagevendor/app', '/imagevendor/app.html', '/placeholder/convert.html']) {
+  for (const url of ['/sigma/editor.html', '/sigma/editor/abc', '/pigment/app', '/pigment/app.html', '/imagevendor/app', '/imagevendor/app.html', '/placeholder/convert.html']) {
     assert.equal((await request(url, 'GET', undefined, '')).status, 302, url);
   }
 });

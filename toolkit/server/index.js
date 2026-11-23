@@ -6,6 +6,7 @@ if (require.main === module) {
 // Hosts the Toolkit shell plus the Sigma and Placeholder apps behind
 // a single shared sign-in.
 const path = require('path');
+const fs = require('fs');
 const express = require('express');
 const helmet = require('helmet');
 const {
@@ -37,6 +38,10 @@ if (process.env.TOOLKIT_LOCAL_ONLY === '0') app.set('trust proxy', 'loopback');
 const baseHelmet = helmet({
   contentSecurityPolicy: false,
   crossOriginEmbedderPolicy: false,
+  // The tab shell (home.html) embeds app pages in same-origin iframes, so framing is
+  // limited to this origin (X-Frame-Options SAMEORIGIN plus CSP frame-ancestors 'self')
+  // instead of denied outright. Other sites still cannot frame Toolkit.
+  xFrameOptions: { action: 'sameorigin' },
 });
 
 const strictCsp = helmet.contentSecurityPolicy({
@@ -53,7 +58,7 @@ const strictCsp = helmet.contentSecurityPolicy({
     objectSrc: ["'none'"],
     baseUri: ["'self'"],
     formAction: ["'self'"],
-    frameAncestors: ["'none'"],
+    frameAncestors: ["'self'"],   // same-origin only: the tab shell frames app pages (see baseHelmet)
   },
 });
 
@@ -101,6 +106,24 @@ function gate(req, res, file, dir) {
   res.sendFile(path.join(dir, file));
 }
 
+// Signed-in people never see landing pages: "/" is the tab shell (home.html) for them.
+// Falls back to the landing page only if the shell file is missing from the install.
+function home(req, res) {
+  const user = getSessionUser(req);
+  if (!user) return res.sendFile(path.join(TOOLKIT_PUBLIC, 'index.html'));
+  if (mfaSetupPending(req, user)) return res.redirect('/account?setup-mfa=1');
+  res.set('Cache-Control', 'no-store');
+  const shell = path.join(TOOLKIT_PUBLIC, 'home.html');
+  res.sendFile(fs.existsSync(shell) ? shell : path.join(TOOLKIT_PUBLIC, 'index.html'));
+}
+// An app's landing page is for signed-out visitors; signed-in people are sent to the shell.
+function landing(dir) {
+  return (req, res) => {
+    if (getSessionUser(req)) return res.redirect('/');
+    res.sendFile(path.join(dir, 'index.html'));
+  };
+}
+
 // Static files are served from an allow-list: only web asset types, never tests,
 // reports, scripts (.cjs), source notes (.md) or anything under a tests/ folder. An
 // application directory also contains developer files that must not be public.
@@ -118,7 +141,8 @@ function assets(dir, options = {}) {
 }
 
 // ---------- Toolkit shell ----------
-app.get('/', (req, res) => res.sendFile(path.join(TOOLKIT_PUBLIC, 'index.html')));
+app.get('/', home);
+app.get('/home.html', (req, res) => (getSessionUser(req) ? home(req, res) : res.redirect('/')));
 app.get('/auth', (req, res) => {
   // During a two-step challenge the person may still hold an older session; keep the page open for the code.
   const challenged = req.query.mfa === '1' && mfa.hasChallengeCookie(req);
@@ -131,25 +155,32 @@ app.get('/reset', (req, res) => res.sendFile(path.join(TOOLKIT_PUBLIC, 'reset.ht
 app.get('/account', (req, res) => gate(req, res, 'account.html', TOOLKIT_PUBLIC));
 
 // ---------- Sigma (design studio) ----------
-app.get('/sigma', (req, res) => res.sendFile(path.join(SIGMA_PUBLIC, 'index.html')));
-app.get('/sigma/dashboard.html', (req, res) => gate(req, res, 'dashboard.html', SIGMA_PUBLIC));
+app.get(['/sigma', '/sigma/index.html'], landing(SIGMA_PUBLIC));
+// The central dashboard in the shell replaces the old Sigma project list; "/" handles signed-out visitors.
+app.get(['/sigma/dashboard', '/sigma/dashboard.html'], (req, res) => res.redirect('/'));
 app.get('/sigma/editor.html', (req, res) => gate(req, res, 'editor.html', SIGMA_PUBLIC));
-app.get('/sigma/dashboard', (req, res) => gate(req, res, 'dashboard.html', SIGMA_PUBLIC));
 app.get('/sigma/editor/:id', (req, res) => gate(req, res, 'editor.html', SIGMA_PUBLIC));
 app.use('/sigma', assets(SIGMA_PUBLIC));
 
 // ---------- Placeholder (file converter) ----------
 app.get('/placeholder/convert.html', (req, res) => gate(req, res, 'convert.html', PLACEHOLDER_DIR));
-app.use('/placeholder', assets(PLACEHOLDER_DIR, { index: true })); // serves index.html, redirects /placeholder -> /placeholder/
+// The Placeholder landing page uses relative links, so it must be served from "/placeholder/".
+app.get('/placeholder', (req, res, next) => {
+  if (req.path !== '/placeholder') return next();
+  const q = req.originalUrl.indexOf('?');
+  res.redirect(301, '/placeholder/' + (q >= 0 ? req.originalUrl.slice(q) : ''));
+});
+app.get(['/placeholder/', '/placeholder/index.html'], landing(PLACEHOLDER_DIR));
+app.use('/placeholder', assets(PLACEHOLDER_DIR));
 
 // ---------- Pigment (paint & coloring studio) ----------
-app.get('/pigment', (req, res) => res.sendFile(path.join(PIGMENT_DIR, 'index.html')));
+app.get(['/pigment', '/pigment/index.html'], landing(PIGMENT_DIR));
 app.get('/pigment/app.html', (req, res) => gate(req, res, 'app.html', PIGMENT_DIR));
 app.get('/pigment/app', (req, res) => gate(req, res, 'app.html', PIGMENT_DIR));
 app.use('/pigment', assets(PIGMENT_DIR));
 
 // ---------- ImageVendor (raster image editor) ----------
-app.get('/imagevendor', (req, res) => res.sendFile(path.join(IMAGEVENDOR_DIR, 'index.html')));
+app.get(['/imagevendor', '/imagevendor/index.html'], landing(IMAGEVENDOR_DIR));
 app.get('/imagevendor/app.html', (req, res) => gate(req, res, 'app.html', IMAGEVENDOR_DIR));
 app.get('/imagevendor/app', (req, res) => gate(req, res, 'app.html', IMAGEVENDOR_DIR));
 app.use('/imagevendor', assets(IMAGEVENDOR_DIR));

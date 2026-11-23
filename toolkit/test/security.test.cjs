@@ -447,6 +447,8 @@ test('security headers are present on pages and API responses', async () => {
   assert.ok(!csp.includes('unsafe-inline') && !csp.includes('unsafe-eval'), 'no unsafe-inline or unsafe-eval anywhere in the CSP: ' + csp);
   assert.match(csp, /(^|;)\s*style-src 'self'(;|$)/, 'styles only from this origin');
   assert.match(csp, /(^|;)\s*script-src 'self'(;|$)/, 'scripts only from this origin');
+  assert.match(csp, /(^|;)\s*frame-ancestors 'self'(;|$)/, 'only this origin may frame Toolkit (the tab shell uses same-origin iframes)');
+  assert.equal(page.res.headers.get('x-frame-options'), 'SAMEORIGIN');
   assert.equal(page.res.headers.get('x-powered-by'), null);
   assert.equal((await call('/api/auth/me')).res.headers.get('cache-control'), 'no-store');
   const a = await register();

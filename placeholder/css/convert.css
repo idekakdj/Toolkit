@@ -300,3 +300,6 @@ select option { background: #0b0b1c; color: var(--ink); }
 }
 
 .browse-btn { background: none; border: 0; padding: 0; color: inherit; font: inherit; font-weight: 700; cursor: pointer; }
+
+/* The logo is a label, not a link: only the Toolkit link navigates (home). */
+span.logo { cursor: default; }

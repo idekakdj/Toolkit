@@ -43,7 +43,8 @@ button { font-family: var(--font); }
 
 .tb-left { display: flex; align-items: center; gap: 10px; min-width: 0; }
 .tb-home { display: grid; place-items: center; border-radius: 8px; padding: 4px; }
-.tb-home:hover { background: var(--panel-2); }
+.tb-toolkit { display: grid; place-items: center; border-radius: 8px; padding: 6px; color: inherit; }
+.tb-toolkit:hover { background: var(--panel-2); }
 
 #project-name {
   background: transparent;
@@ -403,3 +404,6 @@ select:focus { outline: none; border-color: var(--turquoise); }
 
 button:focus-visible, a:focus-visible, .l-name:focus-visible, #viewport:focus-visible { outline: 2px solid var(--turquoise); outline-offset: -2px; }
 .ii-thumb { width: 52px; height: 52px; object-fit: contain; display: block; margin: 0 auto 6px; }
+
+/* Embedded in a Toolkit tab: the shell provides the way home. */
+

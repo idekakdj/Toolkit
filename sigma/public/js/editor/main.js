@@ -43,7 +43,7 @@ async function loadProject() {
     $('project-name').value = state.projectName;
     document.title = `${state.projectName} — Sigma`;
   } catch (err) {
-    if (!redirectIfSignedOut(err)) window.location.href = '/sigma/dashboard';
+    if (!redirectIfSignedOut(err)) { if (window.ToolkitTabs) window.ToolkitTabs.goHome(); else window.location.href = '/sigma/dashboard'; }
     throw err;
   }
 }

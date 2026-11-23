@@ -228,7 +228,11 @@ router.delete('/', sensitiveLimiter, async (req, res, next) => {
     db.users = db.users.filter(u => u.id !== id);
     audit('account.delete', { req, userId: id, detail: removed });
     destroySession(req, res);
-    eraseDurably();
+    try { eraseDurably(); }
+    catch (err) {
+      console.error('[account] erasure not durable:', err.message);
+      return res.status(500).json({ error: 'We could not finish erasing your data. Do not assume it is gone; contact the administrator.' });
+    }
     res.json({ ok: true });
   } catch (err) { next(err); }
 });

@@ -38,7 +38,7 @@ async function launch() {
       body: JSON.stringify({ email: 'desktop@example.com', password: 'Violet-Harbor-Lamp-42' }) });
     assert.equal(webLogin.status, 200, 'Desktop account works in browser session');
     const webCookie = webLogin.headers.get('set-cookie').split(';')[0];
-    for (const url of ['/sigma/dashboard', '/pigment', '/imagevendor', '/placeholder/convert.html']) {
+    for (const url of ['/', '/pigment/app?tk-standalone=1', '/imagevendor/app?tk-standalone=1', '/placeholder/convert.html?tk-standalone=1']) {
       await page.goto(origin + url); assert.ok(await page.title());
     }
     const created = await api('/api/projects', 'POST', { name: 'Desktop persisted design' });

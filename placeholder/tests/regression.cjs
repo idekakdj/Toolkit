@@ -67,5 +67,10 @@ async function check(name, fn) { await fn(); checks++; console.log('PASS ' + nam
     for (const name of ['converters', 'convert-page', 'design-import']) assert.ok(html.includes('<script defer src="js/' + name + '.js">'));
     assert.ok(html.indexOf('id="errorBox"') > html.indexOf('<!-- Step 3: result -->') - 150);
   });
+  await check('JSON to table ignores inherited properties for headers missing from a row', async () => {
+    const csv = await convert('[{"toString":"x","constructor":"y","a":1},{"a":2}]', 'json', 'csv');
+    assert.equal(csv.split(String.fromCharCode(13)).join(''), ['toString,constructor,a', 'x,y,1', ',,2'].join(String.fromCharCode(10)));
+    assert.ok(!/function|native code/.test(csv));
+  });
   console.log(`${checks} regression groups passed`);
 })().catch(err => { console.error(err); process.exitCode = 1; });

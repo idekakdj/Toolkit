@@ -569,7 +569,7 @@ test('TOOLKIT_REQUIRE_MFA=1: sessions without two-step are limited to setting it
     assert.equal((await call('/api/account/sessions', { cookie })).status, 200);
 
     resetLimits();
-    const gate = await fetch(base + '/sigma/dashboard', { redirect: 'manual', headers: { Cookie: cookie } });
+    const gate = await fetch(base + '/', { redirect: 'manual', headers: { Cookie: cookie } });
     assert.equal(gate.status, 302);
     assert.equal(gate.headers.get('location'), '/account?setup-mfa=1');
     const accountPage = await fetch(base + '/account', { redirect: 'manual', headers: { Cookie: cookie } });
@@ -581,7 +581,7 @@ test('TOOLKIT_REQUIRE_MFA=1: sessions without two-step are limited to setting it
     assert.equal((await call('/api/projects', { cookie })).status, 200);
     assert.equal((await call('/api/account', { cookie })).data.account.mfaSetupRequired, false);
     resetLimits();
-    assert.equal((await fetch(base + '/sigma/dashboard', { redirect: 'manual', headers: { Cookie: cookie } })).status, 200);
+    assert.equal((await fetch(base + '/', { redirect: 'manual', headers: { Cookie: cookie } })).status, 200);
     freshStep('rex@gmail.com');
     const off = await call('/api/account/mfa/disable', { method: 'POST', cookie, body: { currentPassword: PASSWORD, code: codeFor(e.secret) } });
     assert.equal(off.status, 403); assert.equal(off.data.code, 'mfa_required');

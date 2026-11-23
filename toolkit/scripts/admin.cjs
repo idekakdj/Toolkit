@@ -41,7 +41,11 @@ function find(emailArg) {
   return user;
 }
 const sessionsOf = id => Object.keys(db.sessions).filter(k => db.sessions[k].userId === id);
-const done = () => { require('../server/store').flush(); };
+const done = () => {
+  try { require('../server/store').flushStrict(); }
+  catch (err) { console.error(`NOT SAVED: ${err.message}
+Nothing was changed on disk. Fix the problem (disk space, permissions) and run the command again.`); process.exit(2); }
+};
 
 switch (command) {
   case 'list': {
@@ -71,7 +75,12 @@ switch (command) {
     for (const k of sessionsOf(u.id)) delete db.sessions[k];
     db.users = db.users.filter(x => x.id !== u.id);
     audit('account.delete', { userId: u.id, detail: { ...removed, by: 'admin-cli' } });
-    eraseDurably();
+    try { eraseDurably(); }
+    catch (err) {
+      console.error(`ERASURE NOT COMPLETE: ${err.message}
+Fix the problem (disk space, permissions) and run the command again; do not report this request as done.`);
+      process.exit(2);
+    }
     console.log(`Deleted ${u.email}: ${JSON.stringify(removed)}. The rolling backup copy was replaced.`);
     console.log('Operator backups made earlier still contain this data until they expire; see OPERATIONS.md section 3.');
     break;
@@ -83,7 +92,8 @@ switch (command) {
     if (db.users.some(x => x.email === parsed.email)) { console.error('That address is already in use.'); process.exit(1); }
     if (!flag) { console.error(`Change ${u.email} to ${parsed.email}? Verify the owner out of band, then re-run with --yes.`); process.exit(1); }
     u.email = parsed.email;
-    if (u.emailVerified === true) u.emailVerified = false;           // the new address has not proved ownership
+    if (u.emailVerified === true) { u.emailVerified = false; u.unverifiedSince = Date.now(); }   // the new address has not proved ownership; the 7-day purge clock starts now
+    delete u.reset; delete u.verify;                                  // tokens and codes were issued to the old mailbox
     for (const k of sessionsOf(u.id)) delete db.sessions[k];
     audit('admin.set-email', { userId: u.id, detail: { by: 'admin-cli' } });
     save(); done();

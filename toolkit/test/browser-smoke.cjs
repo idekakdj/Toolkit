@@ -28,12 +28,18 @@ async function main() {
       return response.json();
     };
     await api('/api/auth/register', 'POST', { name: 'Browser test', email: 'browser@example.com', password: 'Violet-Harbor-Lamp-42', acceptTerms: true });
+    // Signed in: "/" is the tab shell and the app landing pages redirect to it.
     for (const url of ['/', '/sigma', '/pigment', '/imagevendor', '/placeholder/']) {
       await page.goto(base + url);
       assert.ok(await page.title(), url);
+      assert.equal(new URL(page.url()).pathname, '/', url + ' lands on the shell');
     }
-    await page.goto(base + '/sigma/dashboard');
-    await page.waitForSelector('#new-project-btn');
+    await page.waitForSelector('iframe, [data-tk-home], #tk-home, .tk-home');
+    // Direct app pages redirect into the shell (/?open=...) unless ?tk-standalone=1 is added while navigator.webdriver is true.
+    await page.goto(base + '/pigment/app');
+    await page.waitForFunction(() => location.pathname === '/');
+    await page.goto(base + '/pigment/app?tk-standalone=1');
+    assert.equal(new URL(page.url()).pathname, '/pigment/app', 'standalone mode stays on the app page');
     const project = (await api('/api/projects', 'POST', { name: 'Smoke vector' })).project;
     await page.goto(base + '/sigma/editor/' + project.id);
     await page.waitForFunction(() => document.querySelector('#save-status')?.textContent === 'Saved');

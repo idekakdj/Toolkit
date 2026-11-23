@@ -1079,3 +1079,6 @@ button.import-item { font: inherit; color: inherit; text-align: left; width: 100
 .grid-msg.grid-msg-err { opacity: 1; color: var(--c-err, red); }
 .offscreen-svg { position: absolute; left: -99999px; top: 0; visibility: hidden; overflow: visible; }
 .offscreen-svg-clip { position: absolute; left: -9999px; top: -9999px; visibility: hidden; }
+
+/* The app logo is a label, not a link: only the Toolkit icon navigates (home). */
+span.tb-brand { cursor: default; }

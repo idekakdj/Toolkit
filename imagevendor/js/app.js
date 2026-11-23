@@ -375,6 +375,13 @@ function selectLayer(id) {
 function refreshLayersPanel() {
   const list = document.getElementById('layers-list');
   if (!list) return;
+  // Rebuilding the list destroys the focused element; remember it and restore focus afterwards.
+  let refocus = null;
+  const focused = document.activeElement;
+  if (focused && list.contains(focused)) {
+    const owner = focused.closest('[data-layer-id]');
+    if (owner) refocus = { id: owner.dataset.layerId, vis: focused !== owner && focused.classList.contains('layer-vis') };
+  }
   list.innerHTML = '';
 
   // Render top-to-bottom (reverse of array order)
@@ -386,7 +393,10 @@ function refreshLayersPanel() {
     row.setAttribute('draggable', 'true');
     row.setAttribute('role', 'listitem');
     row.tabIndex = 0;
-    row.addEventListener('keydown', e => { if (e.target === row && (e.key === 'Enter' || e.key === ' ')) { e.preventDefault(); selectLayer(layer.id); } });
+    row.addEventListener('keydown', e => { if (e.target !== row) return;
+      if (e.key === 'Enter' || e.key === ' ') { e.preventDefault(); selectLayer(layer.id); }
+      else if (e.key === 'F2') { e.preventDefault(); startRename(); }       // keyboard route to rename
+    });
 
     const visBtn = document.createElement('button');
     visBtn.className = 'layer-vis';
@@ -410,8 +420,8 @@ function refreshLayersPanel() {
     nameSpan.textContent = layer.name;
     nameSpan.classList.add('layer-name-inline');
 
-    nameSpan.addEventListener('dblclick', (e) => {
-      e.stopPropagation();
+    nameSpan.addEventListener('dblclick', (e) => { e.stopPropagation(); startRename(); });
+    function startRename() {
       const inp = document.createElement('input');
       inp.type = 'text';
       inp.value = layer.name;
@@ -420,9 +430,10 @@ function refreshLayersPanel() {
       inp.focus();
       inp.select();
       let finished = false;
-      function done() {
+      function done(refocus) {
         if (finished) return;
         finished = true;
+        if (refocus) row.focus();          // the panel is rebuilt below; focus follows the row
         pushHistory();
         layer.name = inp.value.trim() || layer.name;
         const ns2 = document.createElement('span');
@@ -434,12 +445,12 @@ function refreshLayersPanel() {
         refreshLayersPanel();
       }
       inp.addEventListener('keydown', (ev) => {
-        if (ev.key === 'Enter') done();
-        if (ev.key === 'Escape') { finished = true; inp.replaceWith(nameSpan); }
+        if (ev.key === 'Enter') done(true);
+        if (ev.key === 'Escape') { finished = true; row.focus(); inp.replaceWith(nameSpan); }
         ev.stopPropagation();
       });
-      inp.addEventListener('blur', done);
-    });
+      inp.addEventListener('blur', () => done(false));
+    }
 
     row.appendChild(visBtn);
     row.appendChild(nameSpan);
@@ -476,6 +487,7 @@ function refreshLayersPanel() {
     });
 
     list.appendChild(row);
+    if (refocus && refocus.id === layer.id) (refocus.vis ? visBtn : row).focus();
   }
 }
 
@@ -789,7 +801,16 @@ let saveConflict = false;
 const conflictMessage = "Save conflict: changed in another tab. Local edits kept; export them using Export, then reload to resume saving.";
 let saveRetryTimer = null;
 
+// True once anything other than the image name changed since the last successful save.
+// A rename alone is sent as a small metadata update instead of re-encoding every layer.
+let contentEdited = false;
+
 export function scheduleAutosave() {
+  contentEdited = true;
+  scheduleSave();
+}
+
+function scheduleSave() {
   editRevision++;
   setHasUnsavedEdits(true);
   if (saveConflict) { setStatus(conflictMessage, 'error'); return; }
@@ -827,10 +848,18 @@ async function doAutosave(isRetry = false) {
   setSaveQueued(false);
   const revision = editRevision;
   const savingId = imageId;
+  const nameOnly = !contentEdited;
   clearTimeout(saveRetryTimer);
   setStatus('Saving…', 'saving');
 
   try {
+    if (nameOnly) {
+      const result = await api(`/api/images/${savingId}`, { method: 'PUT', body: { baseRevision: serverRevision, name: imageName } });
+      serverRevision = result?.image?.revision ?? serverRevision + 1;
+      if (revision === editRevision) { setHasUnsavedEdits(false); setStatus('Saved', ''); }
+      else setSaveQueued(true);
+      return;
+    }
     const thumbnail = await generateThumbnail();
     const layers = doc.layers.map(l => {
       const lc = layerCanvases.find(lc2 => lc2.id === l.id);
@@ -853,6 +882,7 @@ async function doAutosave(isRetry = false) {
     });
     serverRevision = result?.image?.revision ?? serverRevision + 1;
     if (revision === editRevision) {
+      contentEdited = false;
       setHasUnsavedEdits(false);
       setStatus('Saved', '');
     } else {
@@ -867,8 +897,9 @@ async function doAutosave(isRetry = false) {
       setStatus(conflictMessage, 'error');
       return;
     }
-    setStatus('Save failed', 'error');
-    if (!isRetry) {
+    setStatus('Save failed: ' + err.message, 'error');
+    // Retrying cannot fix a permanent rejection (quota, validation); a later edit saves again.
+    if (!isRetry && (!err.status || err.status >= 500 || err.status === 429)) {
       saveRetryTimer = setTimeout(() => doAutosave(true), 4000);
     }
   } finally {
@@ -883,7 +914,7 @@ const imageNameInput = document.getElementById('image-name');
 imageNameInput.addEventListener('input', () => {
   setImageName(imageNameInput.value.trim() || 'Untitled image');
   document.title = imageName + ' — ImageVendor';
-  scheduleAutosave();
+  scheduleSave();
 });
 
 // ─── BEFORE UNLOAD ────────────────────────────────────────────────────────────
@@ -1168,7 +1199,7 @@ document.addEventListener('keydown', (evt) => {
   // Always: Ctrl/Cmd+Shift+X → home
   if ((evt.ctrlKey || evt.metaKey) && evt.shiftKey && evt.code === 'KeyX') {
     evt.preventDefault();
-    window.location.href = '/';
+    window.ToolkitTabs ? window.ToolkitTabs.goHome() : (window.location.href = '/');
     return;
   }
 

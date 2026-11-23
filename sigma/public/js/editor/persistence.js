@@ -7,8 +7,8 @@ export function createSaver({ state, thumbnail, write, status, retry, signedOut 
     if (running) { queued = true; return; }
     if (!state.dirty) return;
     running = true;
-    const document = JSON.parse(JSON.stringify(state.doc));
-    const sent = JSON.stringify(document);
+    const sent = JSON.stringify(state.doc);     // one serialization is both the snapshot and the comparison baseline
+    const document = JSON.parse(sent);
     status('Saving…', 'saving');
     try {
       // Thumbnail failures must never prevent document persistence.

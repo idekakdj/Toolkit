@@ -1191,3 +1191,6 @@ button.import-item { color: inherit; font: inherit; text-align: left; }
   min-width: 80px;
   z-index: 9999;
 }
+
+/* Embedded in a Toolkit tab: the shell provides the way home. */
+span.tb-brand { cursor: default; }
