@@ -1,6 +1,18 @@
 # Windows desktop build verification
 
-**Current release: 1.5.0** (2026-11-23). Built `dist/Toolkit-Setup-1.5.0-x64.exe` (Electron 45.4.1,
+**Current release: 1.6.0** (2026-11-23). Built `dist/Toolkit-Setup-1.6.0-x64.exe` (Electron 45.4.1,
+electron-builder 26.18.0; SHA-256 in `dist/SHA256SUMS.txt`; npm audit 0 vulnerabilities). Installed on
+the user's PC 2026-11-23 (silent in-place update while the app was closed; live database hash unchanged).
+
+What changed in 1.6.0: Toolkit lives in the Windows system tray. Clicking the tray icon opens the window;
+right-click offers Open Toolkit and Quit Toolkit. Closing the window hides it to the tray (open tabs,
+unsaved work and the local server keep running), with a one-time notice; Quit Toolkit exits. Each app's own
+back-to-Toolkit icon is removed (the Home button next to the tabs is the way home). Verified on the packaged
+and the installed app with disposable profiles: the 1.5.0 shell probe (now also asserting no app shows its
+own home link) and a main-process check that closing hides the window while the app and server keep
+running, the notice is remembered, reopening shows the same window, and Quit exits.
+
+**Previous release: 1.5.0** (2026-11-23). Built `dist/Toolkit-Setup-1.5.0-x64.exe` (Electron 45.4.1,
 electron-builder 26.18.0; SHA-256 in `dist/SHA256SUMS.txt`; npm audit 0 vulnerabilities). Installed on
 the user's PC 2026-11-23 (silent in-place update while the app was closed; live database hash unchanged).
 
