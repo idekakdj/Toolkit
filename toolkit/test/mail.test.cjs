@@ -9,7 +9,7 @@ const http = require('node:http');
 const temp = fs.mkdtempSync(path.join(os.tmpdir(), 'toolkit-mail-'));
 process.env.TOOLKIT_DATA_DIR = temp;
 process.env.TOOLKIT_EMAIL_DNS_CHECK = 'off';
-delete process.env.TOOLKIT_EMAIL_VERIFICATION;            // the real default: verification required
+process.env.TOOLKIT_EMAIL_VERIFICATION = 'on';           // verification required (temporarily not the default)
 delete process.env.TOOLKIT_SMTP_URL;
 const mailer = require('../server/mailer');
 const outbox = [];

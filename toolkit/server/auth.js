@@ -38,7 +38,11 @@ const COOLDOWN = 60 * 1000;
 // Every new account must prove it owns its email address with a code sent to it, so an
 // address that does not exist can never become a usable account. Only automated tests
 // and fully offline installs that accept that risk may turn this off.
-const verificationRequired = () => process.env.TOOLKIT_EMAIL_VERIFICATION !== 'off';
+// TEMPORARY (2026-11-22): sign-ups no longer pause while no mail server is set up, so new
+// accounts work straight away without an emailed code. Once mail is configured
+// (scripts/setup-mail.cjs) every new account confirms its address with a code again.
+// TOOLKIT_EMAIL_VERIFICATION=on restores the pause. TODO: flip back to "!== 'off'".
+const verificationRequired = () => process.env.TOOLKIT_EMAIL_VERIFICATION === 'on';
 const SIGNUPS_PAUSED = 'Sign-ups are paused: this Toolkit cannot send email yet, so it cannot confirm new addresses. ' +
   'The administrator needs to set up email (run "node scripts/setup-mail.cjs" in the toolkit folder).';
 

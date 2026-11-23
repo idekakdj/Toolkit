@@ -110,7 +110,8 @@ async function checkDomain(domain, options) {
 function dnsCheckEnabled() { return process.env.TOOLKIT_EMAIL_DNS_CHECK !== 'off'; }
 // 'on' (default): only established providers. 'off': any deliverable domain (disposable
 // inboxes and typos are still refused).
-function providerCheckEnabled() { return process.env.TOOLKIT_EMAIL_PROVIDER_CHECK !== 'off'; }
+// TEMPORARY (2026-11-22): off unless set to 'on'. TODO: flip back to "!== 'off'".
+function providerCheckEnabled() { return process.env.TOOLKIT_EMAIL_PROVIDER_CHECK === 'on'; }
 
 const DISPOSABLE_REASON = 'Temporary or disposable email addresses cannot be used. Use your regular email address.';
 const UNRECOGNISED_REASON = 'Use an address from an established email provider (such as Gmail, Outlook, iCloud, Yahoo or Proton), ' +
