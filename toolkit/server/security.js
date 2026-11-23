@@ -1,7 +1,7 @@
 // Security utilities for Toolkit: shared sessions across all apps,
 // CSRF defence, validation, rate limits.
 const crypto = require('crypto');
-const rateLimit = require('express-rate-limit');
+const { rateLimit, ipKeyGenerator } = require('express-rate-limit');
 const { db, save } = require('./store');
 const { audit } = require('./audit');
 const { normalizeEmail } = require('./email-check');
@@ -219,9 +219,8 @@ function safeNextPath(value) {
 // IPv6 addresses are limited per /64 (one subscriber), not per address, so an
 // attacker with a routed /64 cannot rotate through addresses to evade limits.
 function ipKey(req) {
-  const ip = req.ip || (req.socket && req.socket.remoteAddress) || 'unknown';
-  if (ip.includes(':') && !ip.startsWith('::ffff:')) return ip.split(':').slice(0, 4).join(':') + '::/64';
-  return ip;
+  const ip = req.ip || (req.socket && req.socket.remoteAddress);
+  return ip ? ipKeyGenerator(ip, 64) : 'unknown';
 }
 
 function limiter(name, options) {
