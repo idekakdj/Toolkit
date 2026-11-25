@@ -1,6 +1,19 @@
 # Windows desktop build verification
 
-**Current release: 1.6.0** (2026-11-23). Built `dist/Toolkit-Setup-1.6.0-x64.exe` (Electron 45.4.1,
+**Current release: 1.7.0** (2026-11-25). Built `dist/Toolkit-Setup-1.7.0-x64.exe` (Electron 45.4.1,
+electron-builder 26.18.0; SHA-256 in `dist/SHA256SUMS.txt`; npm audit 0 vulnerabilities). Built only; not
+yet installed on the user's PC (1.6.0 is still installed).
+
+What changed in 1.7.0: Pigment's coloring library grows from 12 to 112 pictures with category filters and
+search; personal access tokens on the Account page (read or read-and-change, expiry, revoke, stored hashed,
+limited to the project APIs) for the local Toolkit MCP server, which itself is not packaged (it lives in
+`toolkit/mcp` with its own dependencies); Sigma and Pigment show a "changed elsewhere" banner with Reload
+when a project is edited from another place. Verified on the packaged app with disposable profiles: the
+shell, tabs and tray checks from 1.5.0/1.6.0, the library loading 112 pictures, and an access token that
+reads and creates paintings without the browser CSRF header but is refused on account and token routes;
+an unknown token is refused. No `.env`, database, mail settings or MCP server files are packaged.
+
+**Previous release: 1.6.0** (2026-11-23). Built `dist/Toolkit-Setup-1.6.0-x64.exe` (Electron 45.4.1,
 electron-builder 26.18.0; SHA-256 in `dist/SHA256SUMS.txt`; npm audit 0 vulnerabilities). Installed on
 the user's PC 2026-11-23 (silent in-place update while the app was closed; live database hash unchanged).
 
