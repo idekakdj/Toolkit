@@ -124,12 +124,20 @@ function updateHistoryButtons() {
 
 // ─── SAVE STATUS ─────────────────────────────────────────────────────────────
 
-export function setStatus(text, cls) {
+// A conflict keeps the toolbar status short and explains itself in a banner with a Reload button.
+export function setStatus(text, cls, options = {}) {
   const el = document.getElementById('save-status');
   if (!el) return;
-  el.textContent = text;
+  el.textContent = options.reload ? (text.startsWith('Save conflict') ? 'Save conflict' : 'Out of date') : text;
+  el.title = options.reload ? text : 'Save status';
   el.className = cls || '';
+  const banner = document.getElementById('conflict-banner');
+  if (banner) {
+    document.getElementById('conflict-text').textContent = options.reload ? text : '';
+    banner.hidden = !options.reload;
+  }
 }
+document.getElementById('reload-latest')?.addEventListener('click', () => window.location.reload());
 
 // ─── RENDERING ───────────────────────────────────────────────────────────────
 
@@ -279,7 +287,7 @@ let documentReady = false;
 function scheduleAutosave() {
   hasUnsavedEdits = true;
   editRevision++;
-  if (saveConflict) { setStatus(conflictMessage, 'error'); return; }
+  if (saveConflict) { setStatus(conflictMessage, 'error', { reload: true }); return; }
   setStatus('Edited', '');
   clearTimeout(autosaveTimer);
   autosaveTimer = setTimeout(doAutosave, 1500);
@@ -351,7 +359,7 @@ export { buildSheetSVG };
 
 let serverRevision = 0;
 let saveConflict = false;
-const conflictMessage = "Save conflict: changed in another tab. Local edits kept; export them using Export, then reload to resume saving.";
+const conflictMessage = "Save conflict: changed elsewhere (another tab, device or an AI assistant). Your edits here are kept but not saved; use Export to keep them, then reload.";
 let saveRetryTimer = null;
 
 async function doAutosave(isRetry = false) {
@@ -387,7 +395,7 @@ async function doAutosave(isRetry = false) {
       saveConflict = true;
       hasUnsavedEdits = true; saveQueued = false;
       clearTimeout(autosaveTimer); clearTimeout(saveRetryTimer);
-      setStatus(conflictMessage, 'error');
+      setStatus(conflictMessage, 'error', { reload: true });
       return;
     }
     setStatus('Save failed: ' + err.message, 'error');
@@ -1174,6 +1182,32 @@ async function init() {
     }
   });
 }
+
+// ─── CHANGES MADE ELSEWHERE ──────────────────────────────────────────────────
+// Another tab, another device, or an AI assistant using an access token may save this
+// painting too. When this tab regains focus, and every 20 s while it is visible, it asks
+// the server for the painting's revision only. A newer revision holds autosave, which the
+// server would refuse anyway, and offers a reload, so nothing is overwritten silently.
+let checkingFreshness = false;
+async function checkFreshness() {
+  if (!paintingId || !documentReady || saveConflict || isSaving || checkingFreshness || document.visibilityState !== 'visible') return;
+  checkingFreshness = true;
+  try {
+    const known = serverRevision;
+    const { revision } = await api(`/api/paintings/${paintingId}/revision`);
+    // One of our own saves started or finished meanwhile: its result is the newer truth.
+    if (saveConflict || isSaving || serverRevision !== known) return;
+    if (Number.isSafeInteger(revision) && revision > known) {
+      saveConflict = true; saveQueued = false;
+      clearTimeout(autosaveTimer); clearTimeout(saveRetryTimer);
+      setStatus(hasUnsavedEdits ? conflictMessage : 'Changed elsewhere (another tab, device or an AI assistant). Reload to see the latest version.', 'error', { reload: true });
+    }
+  } catch (err) { redirectIfSignedOut(err); /* offline or busy: the next check tries again */ }
+  finally { checkingFreshness = false; }
+}
+window.addEventListener('focus', checkFreshness);
+document.addEventListener('visibilitychange', checkFreshness);
+setInterval(checkFreshness, 20000);
 
 function activateTile(evt) {
   if (evt.target === evt.currentTarget && (evt.key === 'Enter' || evt.key === ' ')) {

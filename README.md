@@ -46,6 +46,53 @@ tokens, login lockout, rate limiting, CSRF checks, helmet security headers
 with per-app Content-Security-Policies) lives in `toolkit/server/` and fronts
 every route.
 
+## Use Toolkit from an AI assistant (MCP)
+
+Claude Desktop, Claude Code and other MCP clients can list and read your projects,
+draw Sigma designs and colour Pigment coloring pages. They do this through a local MCP
+server in `toolkit/mcp/`, which talks to the Toolkit running on your computer.
+
+1. **Install it** (once): run `npm install` in `toolkit/mcp`. You need Node.js 20 or newer.
+2. **Create a token**: open Toolkit **Account > Access tokens**. Give the token a name,
+   pick *Read and change* or *Read only* and an expiry, then confirm your password.
+   Copy the `tkp_...` token: it is shown only once, and Toolkit keeps only its hash. A
+   token can reach projects, paintings and images, nothing else. Every use is audited.
+3. **Add it to Claude Desktop**: open Settings > Developer > Edit Config, which opens
+   `claude_desktop_config.json` (on Windows, `%APPDATA%\Claude\claude_desktop_config.json`).
+   Add the entry below, then restart Claude Desktop:
+
+   ```json
+   {
+     "mcpServers": {
+       "toolkit": {
+         "command": "node",
+         "args": ["C:\\path\\to\\Toolkit\\toolkit\\mcp\\server.cjs"],
+         "env": { "TOOLKIT_TOKEN": "tkp_..." }
+       }
+     }
+   }
+   ```
+
+   **Or add it to Claude Code** (keep the token out of the repository's `.mcp.json`
+   by using the user scope):
+
+   ```
+   claude mcp add toolkit --scope user --env TOOLKIT_TOKEN=tkp_... -- node C:\path\to\Toolkit\toolkit\mcp\server.cjs
+   ```
+
+4. **Revoke a token** from the same Account page whenever you like. Tools using it stop
+   at once.
+
+The server finds Toolkit's port in `runtime.json` in the data folder, or falls back to
+`http://127.0.0.1:4310`. Set `TOOLKIT_URL` to override this. Every change it makes uses
+the same revision check as the editors. An open tab that is changed by the assistant
+shows *"Changed elsewhere … Reload"* instead of overwriting the change.
+
+Phase 2, not built yet: a remote MCP server reachable over the internet, OAuth sign-in,
+ChatGPT support, ImageVendor pixel editing and Placeholder conversions. See the
+[MCP server guide](toolkit/mcp/README.md) for the tool list, settings, troubleshooting
+and the phase 2 list.
+
 ## Verification and data
 
 Run `npm test` from `toolkit/` for all sixteen regression suites. Tests use a

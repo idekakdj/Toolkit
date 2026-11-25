@@ -39,9 +39,17 @@ jobs:
         with:
           node-version: 24
           cache: npm
-          cache-dependency-path: toolkit/package-lock.json
+          cache-dependency-path: |
+            toolkit/package-lock.json
+            toolkit/mcp/package-lock.json
 
       - name: Install from lockfile
+        run: npm ci
+
+      # The MCP server (toolkit/mcp) has its own package so its SDK never ships in the
+      # desktop installer; install it so its tests run instead of being skipped.
+      - name: Install MCP server from lockfile
+        working-directory: toolkit/mcp
         run: npm ci
 
       - name: Verify installed tree matches the lockfile
@@ -52,6 +60,11 @@ jobs:
 
       - name: Audit production dependencies
         if: runner.os == 'Linux'
+        run: npm audit --omit=dev --audit-level=high
+
+      - name: Audit MCP server dependencies
+        if: runner.os == 'Linux'
+        working-directory: toolkit/mcp
         run: npm audit --omit=dev --audit-level=high
 
       - name: Licence report

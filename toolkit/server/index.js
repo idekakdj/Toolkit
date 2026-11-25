@@ -18,6 +18,7 @@ const accountRoutes = require('./account');
 const projectRoutes = require('./projects');
 const paintingRoutes = require('./paintings');
 const imageRoutes = require('./images');
+const { tokenAuth, rejectToken } = require('./tokens');
 
 const app = express();
 const ASSET_ROOT = process.env.TOOLKIT_ASSET_ROOT || path.join(__dirname, '..', '..');
@@ -77,15 +78,16 @@ app.get('/healthz', (req, res) => { res.set('Cache-Control', 'no-store'); res.js
 
 // ---------- shared API: rate limited + CSRF checked ----------
 // Every limit and the CSRF check run before a body is read. Data routes also require a
-// signed-in session BEFORE the body parser, so anonymous clients cannot make the server
-// buffer large payloads. Each route gets a body limit matching its real maximum.
-app.use('/api', apiLimiter, writeLimiter, csrfProtect, (req, res, next) => {
+// signed-in session (or a personal access token, see tokens.js) BEFORE the body parser,
+// so anonymous clients cannot make the server buffer large payloads. Each route gets a
+// body limit matching its real maximum. Token requests pass the same rate limiters.
+app.use('/api', apiLimiter, writeLimiter, tokenAuth, csrfProtect, (req, res, next) => {
   res.set('Cache-Control', 'no-store');
   next();
 });
 const json = limit => express.json({ limit });
 app.use('/api/auth', json('16kb'), authRoutes);
-app.use('/api/account', requireAuth, json('16kb'), accountRoutes);
+app.use('/api/account', rejectToken, requireAuth, json('16kb'), accountRoutes);
 app.use('/api/projects', requireAuth, json('10mb'), projectRoutes);
 app.use('/api/paintings', requireAuth, json('10mb'), paintingRoutes);
 app.use('/api/images', requireAuth, json('27mb'), imageRoutes);

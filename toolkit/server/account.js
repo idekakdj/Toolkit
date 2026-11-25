@@ -16,6 +16,7 @@ const { cleanName } = require('./validation');
 const { PRIVACY_VERSION } = require('./policy');
 const mfa = require('./mfa');
 const qr = require('./qr');
+const tokens = require('./tokens');
 
 const router = express.Router();
 router.use(requireAuth);
@@ -109,6 +110,30 @@ router.delete('/sessions/:id', (req, res) => {
   res.json({ ok: true });
 });
 
+// ---------- personal access tokens (for local tools such as the Toolkit MCP server) ----------
+router.get('/tokens', (req, res) => {
+  res.json({ tokens: tokens.listTokens(req.user.id), scopes: tokens.SCOPES, expiryDays: tokens.EXPIRY_DAYS });
+});
+
+// Creating a token hands out lasting access, so it needs the same fresh re-authentication
+// as the other sensitive actions. The secret is returned once and never stored.
+router.post('/tokens', sensitiveLimiter, async (req, res, next) => {
+  try {
+    if (!(await reauth(req, res))) return;
+    const { name, scopes, expiresInDays } = req.body || {};
+    const made = tokens.createToken(req.user.id, { name, scopes, expiresInDays });
+    if (made.error) return res.status(400).json({ error: made.error });
+    audit('token.create', { req, userId: req.user.id, detail: { tokenId: made.record.id, scopes: made.record.scopes, expiresAt: made.record.expiresAt } });
+    res.status(201).json({ token: made.token, record: made.record });
+  } catch (err) { next(err); }
+});
+
+router.delete('/tokens/:id', (req, res) => {
+  if (!tokens.revokeToken(req.user.id, req.params.id)) return res.status(404).json({ error: 'Token not found.' });
+  audit('token.revoke', { req, userId: req.user.id, detail: { tokenId: req.params.id } });
+  res.json({ ok: true });
+});
+
 // ---------- two-step sign-in (authenticator app) ----------
 const BAD_CODE = 'That code is not right. Check your authenticator app and try again.';
 const badCode = res => res.status(400).json({ error: BAD_CODE, code: 'mfa_invalid' });
@@ -198,6 +223,7 @@ router.get('/export', sensitiveLimiter, (req, res) => {
   res.write(',"account":' + JSON.stringify(safeUser));
   res.write(',"sessions":' + JSON.stringify(listSessions(u.id, req.sessionKey)));
   res.write(',"activity":' + JSON.stringify(eventsFor(u.id)));
+  res.write(',"accessTokens":' + JSON.stringify(tokens.listTokens(u.id)));   // names and dates only, never the hashes
   for (const [collection, app] of COLLECTIONS) {
     res.write(`,"${collection}":[`);
     let first = true;
@@ -225,6 +251,7 @@ router.delete('/', sensitiveLimiter, async (req, res, next) => {
       db[c] = db[c].filter(r => r.ownerId !== id);
     }
     for (const k of Object.keys(db.sessions)) if (db.sessions[k].userId === id) delete db.sessions[k];
+    removed.tokens = tokens.removeUserTokens(id);
     db.users = db.users.filter(u => u.id !== id);
     audit('account.delete', { req, userId: id, detail: removed });
     destroySession(req, res);

@@ -60,6 +60,19 @@ button { font-family: var(--font); }
 #save-status { font-size: 0.75rem; color: var(--text-dim); white-space: nowrap; }
 #save-status.saving { color: var(--orange-soft); }
 #save-status.error { color: var(--danger); }
+.conflict-banner {
+  position: fixed; top: 58px; left: 50%; transform: translateX(-50%); z-index: 50;
+  display: flex; align-items: center; gap: 12px; max-width: min(620px, calc(100vw - 24px));
+  padding: 10px 14px; border-radius: 8px; border: 1px solid var(--danger);
+  background: var(--panel-2); color: var(--text); font-size: 0.82rem; line-height: 1.35;
+  box-shadow: 0 8px 24px rgba(0,0,0,0.45);
+}
+.conflict-banner[hidden] { display: none; }
+.reload-latest {
+  flex: 0 0 auto; font: inherit; font-weight: 600; padding: 5px 14px; border-radius: 6px; cursor: pointer;
+  border: 1px solid var(--danger); background: var(--danger); color: #fff;
+}
+.reload-latest:hover { filter: brightness(1.1); }
 
 .tb-tools { display: flex; align-items: center; gap: 2px; }
 

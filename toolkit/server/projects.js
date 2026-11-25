@@ -88,6 +88,14 @@ router.get('/:id', (req, res) => {
   res.json({ project: { ...summary(p), document: p.document } });
 });
 
+// Cheap freshness check for open editor tabs: lets them notice a change made elsewhere
+// (another tab, device or an AI assistant using an access token) without downloading the document.
+router.get('/:id/revision', (req, res) => {
+  const p = findOwned(req, res);
+  if (!p) return;
+  res.json({ revision: revision(p), updatedAt: p.updatedAt });
+});
+
 router.put('/:id', (req, res) => {
   const p = findOwned(req, res);
   if (!p) return;

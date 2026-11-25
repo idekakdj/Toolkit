@@ -16,6 +16,8 @@ const suites = [
   ['--test', 'toolkit/test/migration.test.cjs'],
   ['--test', 'toolkit/test/data-integrity.test.cjs'],
   ['--test', 'toolkit/test/app-saves.test.cjs'],
+  ['--test', 'toolkit/test/tokens.test.cjs'],
+  ['--test', 'toolkit/test/mcp.test.cjs'],
   ['--test', 'sigma/tests/regression.test.js'],
   ['--test', 'sigma/tests/distribution.test.js'],
   ['pigment/tests/regression.cjs'],

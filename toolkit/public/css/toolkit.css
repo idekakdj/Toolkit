@@ -648,4 +648,19 @@ footer .lock-line { font-family: var(--font-mono); font-size: 0.74rem; letter-sp
   .mfa-code-grid { grid-template-columns: 1fr; }
 }
 
+/* ---------- access tokens ---------- */
+.field select {
+  width: 100%; padding: 10px 12px; background: var(--black); border: 1.5px solid var(--line);
+  border-radius: 4px; color: var(--white); font-size: 1rem; font-family: var(--font);
+}
+.field select:focus { outline: none; border-color: var(--smoke); }
+.token-created {
+  border: 1px solid var(--smoke); border-radius: 4px; padding: 14px 16px; margin: 0 0 16px;
+  background: var(--coal);
+}
+.token-actions { margin: 12px 0 0; }
+.token-meta { display: block; margin-top: 2px; }
+.token-row-actions { display: flex; gap: 8px; align-items: center; flex: 0 0 auto; }
+.badge-warn { border-color: var(--danger); color: var(--danger); }
+
 .btn-block { width: 100%; }

@@ -9,7 +9,7 @@ function checkRevision(req, res, record) {
     return false;
   }
   if (base !== undefined && base !== revision(record)) {
-    res.status(409).json({ error: 'This document changed in another tab. Export your local edits, then reload before saving.', revision: revision(record) });
+    res.status(409).json({ error: 'This document was changed elsewhere (another tab, device or an AI assistant) since it was loaded. Load it again, then reapply your change.', code: 'conflict', revision: revision(record) });
     return false;
   }
   if (revision(record) === Number.MAX_SAFE_INTEGER) {

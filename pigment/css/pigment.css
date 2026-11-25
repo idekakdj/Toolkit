@@ -305,6 +305,19 @@ a:hover { opacity: 0.7; }
 }
 #save-status.saving { color: var(--mid-grey); }
 #save-status.error { color: #c0392b; }
+.conflict-banner {
+  position: fixed; top: 58px; left: 50%; transform: translateX(-50%); z-index: 60;
+  display: flex; align-items: center; gap: 12px; max-width: min(620px, calc(100vw - 24px));
+  padding: 10px 14px; border-radius: var(--radius); border: 1px solid #c0392b;
+  background: var(--bg); color: var(--ink); font-size: 0.82rem; line-height: 1.35;
+  box-shadow: var(--shadow-md);
+}
+.conflict-banner[hidden] { display: none; }
+.reload-latest {
+  flex: 0 0 auto; font: inherit; font-weight: 600; padding: 5px 14px; border-radius: var(--radius); cursor: pointer;
+  border: 1px solid #c0392b; background: #c0392b; color: #fff;
+}
+.reload-latest:hover { filter: brightness(1.1); }
 
 .tb-group {
   display: flex;

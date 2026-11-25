@@ -17,32 +17,46 @@ function licenceOf(pkg) {
   return (l ? String(l) : '').trim();
 }
 
-const res = spawnSync('npm', ['ls', '--omit=dev', '--all', '--json'], {
-  cwd: root, encoding: 'utf8', shell: process.platform === 'win32', maxBuffer: 64 * 1024 * 1024,
-});
-let tree;
-try { tree = JSON.parse(res.stdout); } catch (e) {
-  console.error('Could not parse `npm ls` output:', res.stderr || e.message);
-  process.exit(1);
-}
-
+// The Toolkit server and the separate MCP server package (toolkit/mcp, kept out of the
+// desktop installer) are both reported. Each tree is read with `npm ls`.
 const found = new Map();
-(function walk(deps, base) {
-  for (const [name, info] of Object.entries(deps || {})) {
-    const dir = path.join(base, 'node_modules', name);
-    const installed = fs.existsSync(dir) ? dir : path.join(root, 'node_modules', name);
-    const key = name + '@' + (info.version || '?');
-    if (!found.has(key)) {
-      let lic = '', version = info.version || '';
-      try {
-        const pkg = JSON.parse(fs.readFileSync(path.join(installed, 'package.json'), 'utf8'));
-        lic = licenceOf(pkg); version = pkg.version || version;
-      } catch (_) { /* not installed where expected; reported as UNKNOWN */ }
-      found.set(key, { name, version, licence: lic || 'UNKNOWN', source: 'npm' });
-    }
-    walk(info.dependencies, fs.existsSync(dir) ? dir : base);
+function scan(dir, label) {
+  const res = spawnSync('npm', ['ls', '--omit=dev', '--all', '--json'], {
+    cwd: dir, encoding: 'utf8', shell: process.platform === 'win32', maxBuffer: 64 * 1024 * 1024,
+  });
+  let tree;
+  try { tree = JSON.parse(res.stdout); } catch (e) {
+    console.error(`Could not parse \`npm ls\` output for ${label}:`, res.stderr || e.message);
+    process.exit(1);
   }
-})(tree.dependencies, root);
+  (function walk(deps, base) {
+    for (const [name, info] of Object.entries(deps || {})) {
+      // An optional peer dependency that is not installed shows up as an empty entry: nothing ships.
+      if (info && typeof info === 'object' && !Object.keys(info).length) continue;
+      const nested = path.join(base, 'node_modules', name);
+      const installed = fs.existsSync(nested) ? nested : path.join(dir, 'node_modules', name);
+      const key = name + '@' + (info.version || '?');
+      if (!found.has(key)) {
+        let lic = '', version = info.version || '';
+        try {
+          const pkg = JSON.parse(fs.readFileSync(path.join(installed, 'package.json'), 'utf8'));
+          lic = licenceOf(pkg); version = pkg.version || version;
+        } catch (_) { /* not installed where expected; reported as UNKNOWN */ }
+        found.set(key, { name, version, licence: lic || 'UNKNOWN', source: label });
+      }
+      walk(info.dependencies, fs.existsSync(nested) ? nested : base);
+    }
+  })(tree.dependencies, dir);
+}
+scan(root, 'npm');
+const mcpDir = path.join(root, 'mcp');
+if (fs.existsSync(path.join(mcpDir, 'package.json'))) {
+  if (!fs.existsSync(path.join(mcpDir, 'node_modules'))) {
+    console.error('toolkit/mcp dependencies are not installed: run "npm install" in toolkit/mcp, then run this report again.');
+    process.exit(1);
+  }
+  scan(mcpDir, 'npm (mcp)');
+}
 
 const rows = [...found.values()];
 
@@ -75,7 +89,7 @@ const out = [
   '# Licence report',
   '',
   `Generated ${new Date().toISOString()} by \`scripts/license-report.cjs\`.`,
-  `Production npm packages: ${rows.filter(r => r.source === 'npm').length}; vendored libraries: ${rows.filter(r => r.source !== 'npm').length}.`,
+  `Production npm packages: ${rows.filter(r => r.source.startsWith('npm')).length} (MCP server: ${rows.filter(r => r.source === 'npm (mcp)').length}); vendored libraries: ${rows.filter(r => !r.source.startsWith('npm')).length}.`,
   '',
   '## Needs attention',
   '',

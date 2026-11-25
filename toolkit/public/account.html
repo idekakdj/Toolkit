@@ -152,6 +152,52 @@
         <button class="btn btn-ghost btn-sm" id="revoke-others-btn" type="button">Sign out everywhere else</button>
       </section>
 
+      <section class="panel" id="tokens-panel" aria-labelledby="h-tokens">
+        <h2 id="h-tokens">Access tokens</h2>
+        <p class="muted">Tokens let a tool on this computer, such as an AI assistant using the Toolkit MCP server, read or change your Sigma projects, Pigment paintings and ImageVendor images. A token cannot sign in, change account settings or make more tokens. Revoke any token you no longer use.</p>
+        <ul id="tokens-list" class="session-list"></ul>
+        <p class="muted" id="tokens-empty">You have no access tokens.</p>
+
+        <div id="token-created" class="token-created" hidden>
+          <p><strong>Copy this token now.</strong> It will not be shown again. Treat it like a password.</p>
+          <div class="mfa-key-row">
+            <code class="mfa-key" id="token-secret"></code>
+            <button class="btn btn-ghost btn-sm" id="token-copy" type="button">Copy</button>
+          </div>
+          <p class="token-actions"><button class="btn btn-sm" id="token-done" type="button">I have copied it</button></p>
+        </div>
+
+        <form id="token-form" novalidate>
+          <h3 class="mfa-sub">New token</h3>
+          <div class="field">
+            <label for="token-name">Name</label>
+            <input id="token-name" type="text" maxlength="60" autocomplete="off" placeholder="Claude Desktop on this laptop">
+          </div>
+          <div class="field">
+            <label for="token-access">Access</label>
+            <select id="token-access">
+              <option value="read,write">Read and change</option>
+              <option value="read">Read only</option>
+            </select>
+          </div>
+          <div class="field">
+            <label for="token-expiry">Expires after</label>
+            <select id="token-expiry">
+              <option value="7">7 days</option>
+              <option value="30">30 days</option>
+              <option value="90" selected>90 days</option>
+              <option value="365">1 year</option>
+              <option value="0">Never</option>
+            </select>
+          </div>
+          <div class="field" id="token-pw-field">
+            <label for="token-pw">Current password</label>
+            <input id="token-pw" type="password" autocomplete="current-password" maxlength="128">
+          </div>
+          <button class="btn btn-sm" id="token-create-btn" type="submit">Create token</button>
+        </form>
+      </section>
+
       <section class="panel" aria-labelledby="h-data">
         <h2 id="h-data">Your data</h2>
         <p class="muted" id="storage-line"></p>

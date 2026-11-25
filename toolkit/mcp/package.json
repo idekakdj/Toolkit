@@ -1,0 +1,16 @@
+{
+  "name": "toolkit-mcp",
+  "version": "0.1.0",
+  "private": true,
+  "description": "Local stdio MCP server that lets AI assistants work with your Toolkit projects.",
+  "license": "UNLICENSED",
+  "type": "commonjs",
+  "main": "server.cjs",
+  "bin": { "toolkit-mcp": "server.cjs" },
+  "engines": { "node": ">=20" },
+  "scripts": { "start": "node server.cjs" },
+  "dependencies": {
+    "@modelcontextprotocol/sdk": "1.32.2",
+    "zod": "4.6.7"
+  }
+}

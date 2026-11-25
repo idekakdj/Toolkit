@@ -49,11 +49,16 @@ async function loadProject() {
 }
 
 let saveTimer = null;
-function setSaveStatus(text, cls = '') {
+// A conflict keeps the toolbar status short and explains itself in a banner with a Reload button.
+function setSaveStatus(text, cls = '', options = {}) {
   const el = $('save-status');
-  el.textContent = text;
+  el.textContent = options.reload ? (text.startsWith('Save conflict') ? 'Save conflict' : 'Out of date') : text;
+  el.title = options.reload ? text : 'Save status';
   el.className = cls;
+  $('conflict-text').textContent = options.reload ? text : '';
+  $('conflict-banner').hidden = !options.reload;
 }
+$('reload-latest').addEventListener('click', () => window.location.reload());
 
 function scheduleSave() {
   if (state.saveConflict) return;
@@ -64,9 +69,11 @@ function scheduleSave() {
 
 // Rename and autosave share one write queue and use the latest acknowledged revision.
 let writeQueue = Promise.resolve();
+let writesInFlight = 0;
 function writeProject(body) {
   const pending = writeQueue.then(async () => {
     if (state.saveConflict) throw Object.assign(new Error('Save conflict: export local edits, then reload.'), { status: 409 });
+    writesInFlight++;
     try {
       const result = await api(`/api/projects/${projectId}`, { method: 'PUT', body: { ...body, baseRevision: state.serverRevision ?? 0 } });
       state.serverRevision = result.project.revision;
@@ -74,10 +81,10 @@ function writeProject(body) {
     } catch (err) {
       if (err.status === 409) {
         state.saveConflict = true; state.dirty = true; clearTimeout(saveTimer);
-        setSaveStatus('Save conflict: changed in another tab. Local edits kept; use Export, then reload to resume saving.', 'error');
+        setSaveStatus('Save conflict: changed elsewhere (another tab, device or an AI assistant). Your edits here are kept but not saved; use Export to keep them, then reload.', 'error', { reload: true });
       }
       throw err;
-    }
+    } finally { writesInFlight--; }
   });
   writeQueue = pending.catch(() => {});
   return pending;
@@ -89,6 +96,34 @@ const saveNow = createSaver({
   status: setSaveStatus, signedOut: redirectIfSignedOut,
   retry: save => { clearTimeout(saveTimer); saveTimer = setTimeout(save, 5000); },
 });
+
+// ---------------- changes made elsewhere ----------------
+// Another tab, another device, or an AI assistant using an access token may save this
+// project too. When this tab regains focus, and every 20 s while it is visible, it asks the
+// server for the project's revision only (not the document). A newer revision holds
+// autosave, which the server would refuse anyway, and offers a reload, so neither side
+// is ever overwritten silently.
+let checkingFreshness = false;
+async function checkFreshness() {
+  if (!state.projectId || state.saveConflict || checkingFreshness || writesInFlight || document.visibilityState !== 'visible') return;
+  checkingFreshness = true;
+  try {
+    const known = state.serverRevision ?? 0;
+    const { revision } = await api(`/api/projects/${projectId}/revision`);
+    // One of our own saves started or finished meanwhile: its result is the newer truth.
+    if (state.saveConflict || writesInFlight || (state.serverRevision ?? 0) !== known) return;
+    if (Number.isSafeInteger(revision) && revision > known) {
+      state.saveConflict = true; clearTimeout(saveTimer);
+      setSaveStatus(state.dirty
+        ? 'Save conflict: changed elsewhere (another tab, device or an AI assistant). Your edits here are kept but not saved; use Export to keep them, then reload.'
+        : 'Changed elsewhere (another tab, device or an AI assistant). Reload to see the latest version.', 'error', { reload: true });
+    }
+  } catch (err) { redirectIfSignedOut(err); /* offline or busy: the next check tries again */ }
+  finally { checkingFreshness = false; }
+}
+window.addEventListener('focus', checkFreshness);
+document.addEventListener('visibilitychange', checkFreshness);
+setInterval(checkFreshness, 20000);
 
 window.addEventListener('beforeunload', (e) => {
   if (state.editingTextId) commitTextEdit();

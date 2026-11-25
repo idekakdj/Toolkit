@@ -174,6 +174,8 @@ function allowedDuringMfaSetup(req) {
 }
 
 function requireAuth(req, res, next) {
+  // Already authenticated by a personal access token (tokens.js limits where that can happen).
+  if (req.authToken && req.user) return next();
   const user = getSessionUser(req);
   if (!user) return res.status(401).json({ error: 'Not signed in' });
   req.user = user;
@@ -189,6 +191,8 @@ function requireAuth(req, res, next) {
 // custom headers cross-origin without CORS approval), so each app may send its own id.
 function csrfProtect(req, res, next) {
   if (['GET', 'HEAD', 'OPTIONS'].includes(req.method)) return next();
+  // Bearer-token requests carry no ambient credential a foreign page could ride on.
+  if (req.authToken) return next();
   const fetchSite = req.headers['sec-fetch-site'];
   const origin = req.headers.origin || '';
   let blocked = false;

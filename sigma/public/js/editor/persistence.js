@@ -23,7 +23,7 @@ export function createSaver({ state, thumbnail, write, status, retry, signedOut 
       state.dirty = true;
       if (err.status === 409) {
         state.saveConflict = true; queued = false;
-        status('Save conflict: changed in another tab. Local edits kept; use Export, then reload to resume saving.', 'error');
+        status('Save conflict: changed elsewhere (another tab, device or an AI assistant). Your edits here are kept but not saved; use Export to keep them, then reload.', 'error', { reload: true });
         return;
       }
       status('Save failed: ' + err.message, 'error');

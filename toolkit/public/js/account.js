@@ -1,4 +1,4 @@
-// Account self-service: profile, password, sessions, data export and deletion.
+// Account self-service: profile, password, sessions, access tokens, data export and deletion.
 // All server text is written with textContent; nothing here builds HTML from data.
 // Accounts created with Google have no password: they can set one here, and confirm
 // sensitive actions by continuing with Google again instead of typing a password.
@@ -86,7 +86,7 @@ function setPasswordMode(withPassword) {
   $('del-password-field').hidden = !withPassword;
   $('del-password').required = withPassword;
   $('del-google-note').hidden = withPassword;
-  for (const id of ['mfa-start-pw-field', 'mfa-regen-pw-field', 'mfa-disable-pw-field']) $(id).hidden = !withPassword;
+  for (const id of ['mfa-start-pw-field', 'mfa-regen-pw-field', 'mfa-disable-pw-field', 'token-pw-field']) $(id).hidden = !withPassword;
 }
 
 // ---------- two-step sign-in ----------
@@ -281,6 +281,77 @@ async function loadSessions() {
   }
 }
 
+// ---------- access tokens ----------
+const SCOPE_LABEL = { 'read': 'read', 'read,write': 'read and change', 'write': 'change' };
+async function loadTokens() {
+  const { tokens } = await call('/api/account/tokens');
+  const list = $('tokens-list');
+  list.replaceChildren();
+  $('tokens-empty').hidden = tokens.length > 0;
+  for (const t of tokens) {
+    const li = document.createElement('li');
+    const info = document.createElement('div');
+    const name = document.createElement('strong');
+    name.textContent = t.name;
+    const meta = document.createElement('span');
+    meta.className = 'muted token-meta';
+    meta.textContent = t.hint + '… · ' + (SCOPE_LABEL[t.scopes.join(',')] || t.scopes.join(', '))
+      + ' · created ' + when(t.createdAt) + ' · last used ' + when(t.lastUsedAt)
+      + ' · ' + (t.expiresAt ? (t.expired ? 'expired ' : 'expires ') + new Date(t.expiresAt).toLocaleDateString() : 'never expires');
+    info.append(name, meta);
+    const actions = document.createElement('div');
+    actions.className = 'token-row-actions';
+    if (t.expired) {
+      const badge = document.createElement('span');
+      badge.className = 'badge badge-warn';
+      badge.textContent = 'expired';
+      actions.append(badge);
+    }
+    const btn = document.createElement('button');
+    btn.type = 'button';
+    btn.className = 'btn btn-ghost btn-sm';
+    btn.textContent = 'Revoke';
+    btn.setAttribute('aria-label', 'Revoke token ' + t.name);
+    btn.addEventListener('click', async () => {
+      if (!window.confirm('Revoke "' + t.name + '"? Tools using it stop working at once.')) return;
+      btn.disabled = true; clearMessages();
+      try { await call('/api/account/tokens/' + encodeURIComponent(t.id), { method: 'DELETE' }); showNotice('Token revoked.'); await loadTokens(); }
+      catch (err) { showError(err.message); btn.disabled = false; }
+    });
+    actions.append(btn);
+    li.append(info, actions);
+    list.append(li);
+  }
+}
+
+$('token-form').addEventListener('submit', async e => {
+  e.preventDefault(); clearMessages();
+  const name = $('token-name').value.trim();
+  if (!name) { $('token-name').focus(); return showError('Give the token a name, such as the tool and computer it is for.'); }
+  if (!checkPassword('token-pw')) return;
+  const btn = $('token-create-btn'); btn.disabled = true;
+  try {
+    const res = await call('/api/account/tokens', { method: 'POST', body: {
+      ...reauthBody('token-pw'), name,
+      scopes: $('token-access').value.split(','),
+      expiresInDays: Number($('token-expiry').value),
+    } });
+    $('token-pw').value = ''; $('token-name').value = '';
+    $('token-secret').textContent = res.token;
+    $('token-created').hidden = false;
+    $('token-form').hidden = true;
+    $('token-created').scrollIntoView({ behavior: 'smooth', block: 'nearest' });
+    await loadTokens();
+  } catch (err) { showError(err.message, err.data && err.data.code); }
+  finally { btn.disabled = false; }
+});
+$('token-copy').addEventListener('click', () => copyText($('token-secret').textContent));
+$('token-done').addEventListener('click', () => {
+  $('token-secret').textContent = '';
+  $('token-created').hidden = true;
+  $('token-form').hidden = false;
+});
+
 $('name-form').addEventListener('submit', async e => {
   e.preventDefault(); clearMessages();
   try {
@@ -351,4 +422,4 @@ $('signout-btn').addEventListener('click', async e => {
   try { await api('/api/auth/logout', { method: 'POST' }); } finally { window.location.href = '/'; }
 });
 
-Promise.all([loadAccount(), loadSessions()]).catch(err => { if (err.status !== 401) showError(err.message); });
+Promise.all([loadAccount(), loadSessions(), loadTokens()]).catch(err => { if (err.status !== 401) showError(err.message); });
