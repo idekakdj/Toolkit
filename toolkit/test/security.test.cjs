@@ -375,6 +375,8 @@ test('account: password change revokes other sessions; export and erasure work',
   assert.ok(!JSON.stringify(exp2.data).includes('Not yours'));
 
   // Erasure requires re-authentication and explicit confirmation.
+  // A request with no body at all is a 400, not a crash (Express 5 leaves req.body undefined).
+  assert.equal((await call('/api/account', { method: 'DELETE', cookie: a.cookie })).status, 400);
   assert.equal((await call('/api/account', { method: 'DELETE', cookie: a.cookie, body: { currentPassword: 'Cobalt-Meadow-17' } })).status, 400);
   assert.equal((await call('/api/account', { method: 'DELETE', cookie: a.cookie, body: { currentPassword: 'wrong-password', confirm: 'DELETE' } })).status, 403);
   const gone = await call('/api/account', { method: 'DELETE', cookie: a.cookie, body: { currentPassword: 'Cobalt-Meadow-17', confirm: 'DELETE' } });

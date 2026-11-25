@@ -242,7 +242,7 @@ router.get('/export', sensitiveLimiter, (req, res) => {
 // security-log entry (user id and time only, no content) is retained for the audit period.
 router.delete('/', sensitiveLimiter, async (req, res, next) => {
   try {
-    if (req.body.confirm !== 'DELETE') return res.status(400).json({ error: 'Type DELETE to confirm.' });
+    if ((req.body || {}).confirm !== 'DELETE') return res.status(400).json({ error: 'Type DELETE to confirm.' });
     if (!(await reauth(req, res))) return;
     const id = req.user.id;
     const removed = {};
