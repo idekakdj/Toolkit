@@ -2,12 +2,19 @@
 // Each piece uses a 0 0 200 200 coordinate space.
 // Consumers: fill tool keys off data-region; Sigma-export reads vb.
 
-export const COLORING = [
+import { ANIMALS } from './library-animals.js';
+import { NATURE } from './library-nature.js';
+import { FOOD } from './library-food.js';
+import { TRAVEL } from './library-travel.js';
+import { FUN } from './library-fun.js';
+
+const ORIGINALS = [
 
   // ─── BUTTERFLY ────────────────────────────────────────────────────────────
   {
     id: 'butterfly',
     name: 'Butterfly',
+    category: 'animals',
     vb: 200,
     markup: `
 <path data-region="r1" fill="#ffffff" stroke="#1e1e1e" stroke-width="3" stroke-linejoin="round"
@@ -43,6 +50,7 @@ export const COLORING = [
   {
     id: 'fish',
     name: 'Fish',
+    category: 'animals',
     vb: 200,
     markup: `
 <path data-region="r1" fill="#ffffff" stroke="#1e1e1e" stroke-width="3" stroke-linejoin="round"
@@ -62,7 +70,7 @@ export const COLORING = [
 <path fill="none" class="detail" stroke="#1e1e1e" stroke-width="2" stroke-linecap="round"
   d="M50,100 C55,93 60,100 55,107"/>
 <path fill="none" class="detail" stroke="#1e1e1e" stroke-width="2" stroke-linecap="round"
-  d="M38,97 C42,103 38,107"/>
+  d="M38,97 Q42,103 38,107"/>
 `
   },
 
@@ -70,6 +78,7 @@ export const COLORING = [
   {
     id: 'flower',
     name: 'Flower',
+    category: 'nature',
     vb: 200,
     markup: `
 <rect data-region="r1" fill="#ffffff" stroke="#1e1e1e" stroke-width="3" stroke-linejoin="round"
@@ -99,6 +108,7 @@ export const COLORING = [
   {
     id: 'sailboat',
     name: 'Sailboat',
+    category: 'travel',
     vb: 200,
     markup: `
 <path data-region="r1" fill="#ffffff" stroke="#1e1e1e" stroke-width="3" stroke-linejoin="round"
@@ -126,6 +136,7 @@ export const COLORING = [
   {
     id: 'mushroom',
     name: 'Mushroom',
+    category: 'nature',
     vb: 200,
     markup: `
 <path data-region="r1" fill="#ffffff" stroke="#1e1e1e" stroke-width="3" stroke-linejoin="round"
@@ -149,6 +160,7 @@ export const COLORING = [
   {
     id: 'rocket',
     name: 'Rocket',
+    category: 'travel',
     vb: 200,
     markup: `
 <path data-region="r1" fill="#ffffff" stroke="#1e1e1e" stroke-width="3" stroke-linejoin="round"
@@ -176,6 +188,7 @@ export const COLORING = [
   {
     id: 'house',
     name: 'House',
+    category: 'fun',
     vb: 200,
     markup: `
 <rect data-region="r1" fill="#ffffff" stroke="#1e1e1e" stroke-width="3" stroke-linejoin="round"
@@ -209,6 +222,7 @@ export const COLORING = [
   {
     id: 'cat',
     name: 'Cat',
+    category: 'animals',
     vb: 200,
     markup: `
 <path data-region="r1" fill="#ffffff" stroke="#1e1e1e" stroke-width="3" stroke-linejoin="round"
@@ -248,6 +262,7 @@ export const COLORING = [
   {
     id: 'ice-cream',
     name: 'Ice Cream',
+    category: 'food',
     vb: 200,
     markup: `
 <path data-region="r1" fill="#ffffff" stroke="#1e1e1e" stroke-width="3" stroke-linejoin="round"
@@ -279,6 +294,7 @@ export const COLORING = [
   {
     id: 'hot-air-balloon',
     name: 'Hot-Air Balloon',
+    category: 'travel',
     vb: 200,
     markup: `
 <path data-region="r1" fill="#ffffff" stroke="#1e1e1e" stroke-width="3" stroke-linejoin="round"
@@ -306,6 +322,7 @@ export const COLORING = [
   {
     id: 'turtle',
     name: 'Turtle',
+    category: 'animals',
     vb: 200,
     markup: `
 <path data-region="r1" fill="#ffffff" stroke="#1e1e1e" stroke-width="3" stroke-linejoin="round"
@@ -339,6 +356,7 @@ export const COLORING = [
   {
     id: 'robot',
     name: 'Robot',
+    category: 'fun',
     vb: 200,
     markup: `
 <rect data-region="r1" fill="#ffffff" stroke="#1e1e1e" stroke-width="3" stroke-linejoin="round"
@@ -380,6 +398,18 @@ export const COLORING = [
 
 ];
 
+export const COLORING = [...ORIGINALS, ...ANIMALS, ...NATURE, ...FOOD, ...TRAVEL, ...FUN];
+
+export const CATEGORIES = [
+  { key: 'animals', label: 'Animals' },
+  { key: 'nature', label: 'Nature' },
+  { key: 'food', label: 'Food' },
+  { key: 'travel', label: 'Travel' },
+  { key: 'fun', label: 'Fun & fantasy' },
+];
+
+const BY_ID = new Map(COLORING.map(c => [c.id, c]));
+
 export function getColoring(id) {
-  return COLORING.find(c => c.id === id) || null;
+  return BY_ID.get(id) || null;
 }

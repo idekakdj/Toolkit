@@ -2,7 +2,7 @@ import { assertRasterSource, assertRasterDimensions } from '/pigment/js/raster.j
 // Pigment – main engine
 // type="module" — loaded by app.html
 
-import { COLORING, getColoring } from '/pigment/js/library.js';
+import { COLORING, CATEGORIES, getColoring } from '/pigment/js/library.js';
 
 // ─── API HELPER ──────────────────────────────────────────────────────────────
 
@@ -893,9 +893,13 @@ document.getElementById('clear-btn').addEventListener('click', () => {
 
 // ─── LIBRARY ─────────────────────────────────────────────────────────────────
 
-function populateLibrary() {
+let libraryBuilt = false;
+const libraryTiles = [];   // { el, name (lowercased), category }
+let libraryCategory = 'all';
+
+function buildLibrary() {
   const grid = document.getElementById('library-grid');
-  grid.innerHTML = '';
+  const filters = document.getElementById('library-filters');
   for (const piece of COLORING) {
     const tile = document.createElement('div');
     tile.className = 'lib-item';
@@ -923,7 +927,47 @@ function populateLibrary() {
       scheduleAutosave();
     });
     grid.appendChild(tile);
+    libraryTiles.push({ el: tile, name: piece.name.toLowerCase(), category: piece.category });
   }
+
+  const counts = new Map();
+  for (const t of libraryTiles) counts.set(t.category, (counts.get(t.category) || 0) + 1);
+  const defs = [{ key: 'all', label: 'All', count: libraryTiles.length },
+    ...CATEGORIES.map(c => ({ key: c.key, label: c.label, count: counts.get(c.key) || 0 }))];
+  for (const def of defs) {
+    const btn = document.createElement('button');
+    btn.type = 'button';
+    btn.className = 'lib-filter';
+    btn.dataset.cat = def.key;
+    btn.textContent = `${def.label} (${def.count})`;
+    btn.setAttribute('aria-pressed', def.key === 'all' ? 'true' : 'false');
+    btn.addEventListener('click', () => { libraryCategory = def.key; applyLibraryFilter(); });
+    filters.appendChild(btn);
+  }
+  document.getElementById('library-search').addEventListener('input', applyLibraryFilter);
+  libraryBuilt = true;
+}
+
+function applyLibraryFilter() {
+  const query = document.getElementById('library-search').value.trim().toLowerCase();
+  let shown = 0;
+  for (const t of libraryTiles) {
+    const match = (libraryCategory === 'all' || t.category === libraryCategory) && (!query || t.name.includes(query));
+    t.el.hidden = !match;
+    if (match) shown++;
+  }
+  for (const btn of document.querySelectorAll('#library-filters .lib-filter')) {
+    btn.setAttribute('aria-pressed', btn.dataset.cat === libraryCategory ? 'true' : 'false');
+  }
+  document.getElementById('library-empty').hidden = shown > 0;
+}
+
+function populateLibrary() {
+  if (!libraryBuilt) buildLibrary();
+  libraryCategory = 'all';
+  document.getElementById('library-search').value = '';
+  document.getElementById('library-grid').scrollTop = 0;
+  applyLibraryFilter();
 }
 
 // ─── MODALS ──────────────────────────────────────────────────────────────────
@@ -965,6 +1009,7 @@ document.getElementById('gallery-btn').addEventListener('click', async () => {
 document.getElementById('library-btn').addEventListener('click', () => {
   populateLibrary();
   openModal('library-modal');
+  document.getElementById('library-search').focus();
 });
 
 document.getElementById('export-btn').addEventListener('click', () => {

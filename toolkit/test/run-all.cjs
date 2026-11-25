@@ -23,6 +23,7 @@ const suites = [
   ['pigment/tests/integration.cjs'],
   ['pigment/tests/text-import.cjs'],
   ['pigment/tests/shapes.cjs'],
+  ['pigment/tests/library.cjs'],
   ['imagevendor/regression.cjs'],
   ['imagevendor/handoff-regression.cjs'],
   ['imagevendor/history-regression.cjs'],

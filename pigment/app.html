@@ -242,7 +242,12 @@
         <button class="modal-close" data-close="library-modal" aria-label="Close library">✕</button>
       </div>
       <p class="modal-sub">Pick an outline and it loads onto your canvas, ready to colour in. Click any closed region with the fill tool to flood it.</p>
+      <div class="lib-controls">
+        <input type="search" id="library-search" class="lib-search" placeholder="Search pictures" aria-label="Search pictures" autocomplete="off">
+        <div id="library-filters" class="lib-filters" role="group" aria-label="Filter by category"></div>
+      </div>
       <div id="library-grid" role="list" aria-label="Coloring library"></div>
+      <p id="library-empty" class="lib-empty" hidden>No pictures match</p>
     </div>
   </div>
 
