@@ -21,7 +21,7 @@
     "express": "^4.19.2",
     "express-rate-limit": "^8.7.5",
     "helmet": "^8.3.0",
-    "nodemailer": "^10.6.0"
+    "nodemailer": "^10.6.1"
   },
   "devDependencies": {
     "electron": "45.4.1",
